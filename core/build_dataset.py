@@ -68,18 +68,23 @@ class DatasetBuilder:
         # We will solve problems (run episodes) until we reach the number of episodes
 
         strong_branching_list = []
+        weak_branching_list = []
+        discarded_trajectories = 0
 
         for i in range(self.nb_episodes):
             print(f"Collecting trajectory for episode {i+1} ...")
 
             trajectory = []
             strong_branching = 0
+            weak_branching = 0
 
             observation, action_set, _, done, _ = env.reset(next(instances))
             while not done:
                 (scores, scores_are_expert), node_observation = observation
                 if scores_are_expert:
                     strong_branching += 1
+                else:
+                    weak_branching += 1
 
                 node_observation = (node_observation.row_features,
                                     (node_observation.edge_features.indices,
@@ -92,14 +97,19 @@ class DatasetBuilder:
                 observation, action_set, _, done, _ = env.step(action)
 
             filename = f'trajectories/{self.dataset_name}/trajectory_{i+1}.pkl'
-            with gzip.open(filename, 'wb') as f:
-                pickle.dump(trajectory, f)
+            if len(trajectory) > 0:
+                with gzip.open(filename, 'wb') as f:
+                    pickle.dump(trajectory, f)
+                strong_branching_list.append(strong_branching)
+                weak_branching_list.append(weak_branching)
+                print(f"Trajectory for episode {i+1} contains {strong_branching} strong branching and "
+                      f"{weak_branching} weak branching.\n")
+            else:
+                discarded_trajectories += 1
+                print(f"Trajectory for episode {i+1} is empty and will be discarded.\n")
 
-            strong_branching_list.append(strong_branching)
-            print(f"Trajectory for episode {i+1} contains {strong_branching} strong branching.\n")
-
-        print(f"Collected {self.nb_episodes} trajectories, containing an average of {np.mean(strong_branching_list)}"
-              f"strong branching samples.")
+        print(f"Collected {self.nb_episodes - discarded_trajectories} trajectories, containing an average of {np.round(np.mean(strong_branching_list),2)} "
+              f"strong branching and an average of {np.round(np.mean(weak_branching_list),2)} weak branching.")
 
     def load_dataset(self):
         dataset_path = f'./trajectories/{self.dataset_name}/'
