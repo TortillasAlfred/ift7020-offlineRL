@@ -11,4 +11,3 @@ if __name__ == '__main__':
     training_instances = data_collector.load_instances(name='train')
     validation_instances = data_collector.load_instances(name='validation')
     test_instances = data_collector.load_instances(name='test')
-    print()
