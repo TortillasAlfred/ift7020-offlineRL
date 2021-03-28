@@ -36,19 +36,19 @@ class ExploreThenStrongBranch:
             return (self.pseudocosts_function.extract(model, done), False)
 
 
-class DatasetBuilder:
+class DataCollector:
 
-    def __init__(self,  dataset_name='dataset', nb_episodes=100, set_cover_nb_rows=500, set_cover_nb_cols=1000,
+    def __init__(self,  collection_name='collection', nb_episodes=100, set_cover_nb_rows=500, set_cover_nb_cols=1000,
                  set_cover_density=0.05, expert_probability=0.05):
 
-        self.dataset_name = dataset_name
+        self.collection_name = collection_name
         self.expert_probability = expert_probability
         self.nb_episodes = nb_episodes
         self.set_cover_nb_rows = set_cover_nb_rows
         self.set_cover_nb_cols = set_cover_nb_cols
         self.set_cover_density = set_cover_density
 
-    def build_dataset(self):
+    def collect_data(self):
         instances = ecole.instance.SetCoverGenerator(n_rows=self.set_cover_nb_rows, n_cols=self.set_cover_nb_cols,
                                                      density=self.set_cover_density)
 
@@ -63,7 +63,7 @@ class DatasetBuilder:
         # This will seed the environment for reproducibility
         env.seed(0)
 
-        Path(f'./trajectories/{self.dataset_name}/').mkdir(parents=True, exist_ok=True)
+        Path(f'./trajectories/{self.collection_name}/').mkdir(parents=True, exist_ok=True)
 
         # We will solve problems (run episodes) until we reach the number of episodes
 
@@ -96,7 +96,7 @@ class DatasetBuilder:
                 trajectory.append([node_observation, action, action_set, scores])
                 observation, action_set, _, done, _ = env.step(action)
 
-            filename = f'trajectories/{self.dataset_name}/trajectory_{i+1}.pkl'
+            filename = f'trajectories/{self.collection_name}/trajectory_{i+1}.pkl'
             if len(trajectory) > 0:
                 with gzip.open(filename, 'wb') as f:
                     pickle.dump(trajectory, f)
@@ -111,8 +111,8 @@ class DatasetBuilder:
         print(f"Collected {self.nb_episodes - discarded_trajectories} trajectories, containing an average of {np.round(np.mean(strong_branching_list),2)} "
               f"strong branching and an average of {np.round(np.mean(weak_branching_list),2)} weak branching.")
 
-    def load_dataset(self):
-        dataset_path = f'./trajectories/{self.dataset_name}/'
+    def load_data(self):
+        dataset_path = f'./trajectories/{self.collection_name}/'
         trajectories = []
 
         for _, _, files in os.walk(dataset_path):

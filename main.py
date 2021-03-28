@@ -1,6 +1,7 @@
-from core import DatasetBuilder
+from core import DataCollector
 
 if __name__ == '__main__':
-    dataset_builder = DatasetBuilder(dataset_name='test_dataset', nb_episodes=10)
-    dataset_builder.build_dataset()
-    dataset = dataset_builder.load_dataset()
+    data_collector = DataCollector(collection_name='test_collection', nb_episodes=10)
+    data_collector.collect_data()
+    data = data_collector.load_data()
+    print()
