@@ -51,20 +51,25 @@ class DataCollector:
         weak_branching_list = []
         discarded_trajectories = 0
 
+        Path(f'{self.collection_root}/collections/{self.collection_name}/train_instances/').mkdir(parents=True, exist_ok=True)
+        Path(f'{self.collection_root}/collections/{self.collection_name}/temp_instances/').mkdir(parents=True, exist_ok=True)
+
         for i in range(self.nb_train_instances):
             print(f"\nCollecting training trajectories for instance {i+1} ...")
 
-            Path(f'{self.collection_root}/collections/{self.collection_name}/train_instances/').mkdir(parents=True, exist_ok=True)
             Path(f'{self.collection_root}/collections/{self.collection_name}/train_trajectories/instance_{i+1}/').mkdir(parents=True, exist_ok=True)
             file = f'{self.collection_root}/collections/{self.collection_name}/train_instances/instance_{i+1}.lp'
+            temp_file = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/instance_{i+1}.lp'
 
             instance = next(self.instance_generator)
-            instance.write_problem(file)
+            instance.write_problem(temp_file)
 
-            if self.instance_unavailable(file):
-                print(f"Training instance {i+1} is in the validation or test collections and will be discarded.")
-                os.remove(file)
+            if self.instance_unavailable(temp_file):
+                print(f"Training instance {i+1} already exist and will be discarded.")
+                os.remove(temp_file)
                 continue
+
+            os.rename(temp_file, file)
 
             for j in range(self.nb_train_episodes):
                 observation, action_set, _, done, rewards = env.reset(instance)
@@ -103,7 +108,8 @@ class DataCollector:
                     discarded_trajectories += 1
                     print(f"Trajectory for episode {j+1} is empty and will be discarded.")
 
-        print(f"Collected {(self.nb_train_instances * self.nb_train_episodes) - discarded_trajectories} trajectories, containing"
+        os.removedirs(f'{self.collection_root}/collections/{self.collection_name}/temp_instances')
+        print(f"\nCollected {(self.nb_train_instances * self.nb_train_episodes) - discarded_trajectories} trajectories, containing"
               f" an average of {np.round(np.mean(strong_branching_list),2)} strong branching and an average"
               f" of {np.round(np.mean(weak_branching_list),2)} weak branching.")
 
@@ -164,11 +170,13 @@ class DataCollector:
                 print(f"Loading {name} instances ...")
 
     def instance_unavailable(self, instance_file):
-        path = f'{self.collection_root}/collections/{self.collection_name}/validation_instances/'
-        for _, _, files in os.walk(path):
-            for file in files:
-                if self.duplicated_instance(instance_file, path+file):
-                    return True
+        instance_folders = ['train', 'validation', 'test']
+        for instance_folder in instance_folders:
+            path = f'{self.collection_root}/collections/{self.collection_name}/{instance_folder}_instances/'
+            for _, _, files in os.walk(path):
+                for file in files:
+                    if self.duplicated_instance(instance_file, path+file):
+                        return True
         return False
 
     @staticmethod
