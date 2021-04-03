@@ -1,18 +1,19 @@
 class GCNPolicy(torch.nn.Module):
-    def __init__(self, nbrConvLayer = 1, emb_size = 64):
+    def __init__(self, nbrConvLayer = 1, nbrLinLayer = 1, emb_size = 64):
         super().__init__()
         cons_nfeats = 5
         edge_nfeats = 1
         var_nfeats = 19
         
-        # CONSTRAINT EMBEDDING
+        # CONSTRAINT EMBEDDING        
         self.cons_embedding = torch.nn.Sequential(
             torch.nn.LayerNorm(cons_nfeats),
             torch.nn.Linear(cons_nfeats, emb_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(emb_size, emb_size),
-            torch.nn.ReLU(),
         )
+        self.cons_lin = torch.nn.ModuleList()
+        for _ in range(nbrLinLayer-1):
+            self.cons_lin.append(torch.nn.Linear(emb_size, emb_size))
 
         # EDGE EMBEDDING
         self.edge_embedding = torch.nn.Sequential(
@@ -24,9 +25,10 @@ class GCNPolicy(torch.nn.Module):
             torch.nn.LayerNorm(var_nfeats),
             torch.nn.Linear(var_nfeats, emb_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(emb_size, emb_size),
-            torch.nn.ReLU(),
         )        
+        self.var_lin = torch.nn.ModuleList()
+        for _ in range(nbrLinLayer-1):
+            self.var_lin.append(torch.nn.Linear(emb_size, emb_size))
         
         self.conv_v_to_c = torch.nn.ModuleList()
         self.conv_c_to_v = torch.nn.ModuleList()
@@ -48,6 +50,11 @@ class GCNPolicy(torch.nn.Module):
         constraint_features = self.cons_embedding(constraint_features)
         edge_features = self.edge_embedding(edge_features)
         variable_features = self.var_embedding(variable_features)
+        
+        for (cons_lin, var_lin) in zip(self.cons_lin, self.var_lin):
+            constraint_features = F.relu(cons_lin(constraint_features))
+            variable_features = F.relu(var_lin(variable_features))
+            
 
         # Half convolutions
         for (v_to_c, c_to_v) in zip(self.conv_v_to_c, self.conv_c_to_v):
@@ -56,9 +63,9 @@ class GCNPolicy(torch.nn.Module):
 
         # A final MLP on the variable features
         output = self.output_module(variable_features).squeeze(-1)
-        
         return output
-     
+    
+    
 class BipartiteGraphConvolution(torch_geometric.nn.MessagePassing):
     """
     The bipartite graph convolution is already provided by pytorch geometric and we merely need 
@@ -108,4 +115,4 @@ class BipartiteGraphConvolution(torch_geometric.nn.MessagePassing):
         return output
     
 
-policy = GCNPolicy(nbrConvLayer = 2, emb_size = 32).to(DEVICE)
+policy = GCNPolicy(nbrConvLayer = 2, nbrLinLayer = 2, emb_size = 32).to(DEVICE)
