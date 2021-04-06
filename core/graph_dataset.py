@@ -12,9 +12,9 @@ class GraphDataset(torch_geometric.data.Dataset):
     It can be used in turn by the data loaders provided by pytorch geometric.
     """
 
-    def __init__(self, collection_name='collection', root='.'):
+    def __init__(self, collection_name='collection', trajectories_name='collection', root='.'):
         super().__init__(root=None, transform=None, pre_transform=None)
-        collection_path = f'{root}/collections/{collection_name}/train_trajectories/'
+        collection_path = f'{root}/collections/{collection_name}/{trajectories_name}/'
 
         self.dataset = []
 
@@ -50,7 +50,7 @@ class GraphDataset(torch_geometric.data.Dataset):
             # We note on which variables we were allowed to branch, the scores as well as the choice
             # taken by strong branching (relative to the candidates)
             candidates = torch.LongTensor(np.array(sample_action_set, dtype=np.int32))
-            candidate_choice = torch.where(candidates == sample_action)[0][0]
+            candidate_choice = sample_action
 
             graph = BipartiteNodeData(constraint_features, edge_indices, edge_features, variable_features,
                                       candidates, candidate_choice, rewards)

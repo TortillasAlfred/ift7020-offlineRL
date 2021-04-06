@@ -9,33 +9,34 @@ import filecmp
 
 class DataCollector:
 
-    def __init__(self, collection_root='.', collection_name='collection', nb_train_instances=100, nb_train_episodes=10,
+    def __init__(self, collection_root='.', collection_name='collection', nb_train_instances=100,
                  nb_val_instances=20, nb_test_instances=20, set_cover_nb_rows=500, set_cover_nb_cols=1000,
-                 set_cover_density=0.05, expert_probability=0.05):
+                 set_cover_density=0.05):
 
         self.collection_name = collection_name
         self.collection_root = collection_root
-        self.expert_probability = expert_probability
-        self.nb_train_episodes = nb_train_episodes
-        self.nb_train_instances = nb_train_instances
         self.set_cover_nb_rows = set_cover_nb_rows
         self.set_cover_nb_cols = set_cover_nb_cols
         self.set_cover_density = set_cover_density
-        self.instance_generator = ecole.instance.SetCoverGenerator(n_rows=self.set_cover_nb_rows, n_cols=self.set_cover_nb_cols,
-                                                          density=self.set_cover_density)
+        self.instance_generator = ecole.instance.SetCoverGenerator(n_rows=self.set_cover_nb_rows,
+                                                                   n_cols=self.set_cover_nb_cols,
+                                                                   density=self.set_cover_density)
         self.nb_val_instances = nb_val_instances
         self.nb_test_instances = nb_test_instances
+        self.nb_train_instances = nb_train_instances
         self.val_instances = []
         self.test_instances = []
+        self.train_instances = []
         self.set_instances(name='validation')
         self.set_instances(name='test')
+        self.set_instances(name='train')
 
-    def collect_training_data(self):
+    def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10, expert_probability=0.05):
         # We can pass custom SCIP parameters easily
         scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
         # Note how we can tuple observation functions to return complex state information
-        env = ecole.environment.Branching(observation_function=(ExploreThenStrongBranch(expert_probability=self.expert_probability),
+        env = ecole.environment.Branching(observation_function=(ExploreThenStrongBranch(expert_probability=expert_probability),
                                                                 ecole.observation.NodeBipartite()),
                                           scip_params=scip_parameters,
                                           information_function={"nb_nodes": ecole.reward.NNodes(),
@@ -52,26 +53,14 @@ class DataCollector:
         discarded_trajectories = 0
 
         Path(f'{self.collection_root}/collections/{self.collection_name}/train_instances/').mkdir(parents=True, exist_ok=True)
-        Path(f'{self.collection_root}/collections/{self.collection_name}/temp_instances/').mkdir(parents=True, exist_ok=True)
 
-        for i in range(self.nb_train_instances):
+        for i, instance in enumerate(self.train_instances):
             print(f"\nCollecting training trajectories for instance {i+1} ...")
 
-            Path(f'{self.collection_root}/collections/{self.collection_name}/train_trajectories/instance_{i+1}/').mkdir(parents=True, exist_ok=True)
-            file = f'{self.collection_root}/collections/{self.collection_name}/train_instances/instance_{i+1}.lp'
-            temp_file = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/instance_{i+1}.lp'
+            Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i + 1}/').mkdir(
+                parents=True, exist_ok=True)
 
-            instance = next(self.instance_generator)
-            instance.write_problem(temp_file)
-
-            if self.instance_unavailable(temp_file):
-                print(f"Training instance {i+1} already exist and will be discarded.")
-                os.remove(temp_file)
-                continue
-
-            os.rename(temp_file, file)
-
-            for j in range(self.nb_train_episodes):
+            for j in range(len(self.train_instances)):
                 observation, action_set, _, done, rewards = env.reset(instance)
 
                 trajectory = []
@@ -95,7 +84,7 @@ class DataCollector:
                     trajectory.append([node_observation, action, action_set, rewards])
                     observation, action_set, _, done, rewards = env.step(action)
 
-                filename = f'{self.collection_root}/collections/{self.collection_name}/train_trajectories/instance_{i+1}/trajectory_{j+1}.pkl'
+                filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i+1}/trajectory_{j+1}.pkl'
                 if len(trajectory) > 0:
                     with gzip.open(filename, 'wb') as f:
                         pickle.dump(trajectory, f)
@@ -108,13 +97,12 @@ class DataCollector:
                     discarded_trajectories += 1
                     print(f"Trajectory for episode {j+1} is empty and will be discarded.")
 
-        os.removedirs(f'{self.collection_root}/collections/{self.collection_name}/temp_instances')
-        print(f"\nCollected {(self.nb_train_instances * self.nb_train_episodes) - discarded_trajectories} trajectories, containing"
+        print(f"\nCollected {(len(self.train_instances) * nb_train_trajectories) - discarded_trajectories} trajectories, containing"
               f" an average of {np.round(np.mean(strong_branching_list),2)} strong branching and an average"
               f" of {np.round(np.mean(weak_branching_list),2)} weak branching.")
 
-    def load_training_trajectories(self):
-        dataset_path = f'{self.collection_root}/collections/{self.collection_name}/train_trajectories/'
+    def load_training_trajectories(self, trajectories_name='trajectories_name'):
+        dataset_path = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/'
         trajectories = []
 
         for _, directories, _ in os.walk(dataset_path):
@@ -129,18 +117,32 @@ class DataCollector:
         print(f"Saving {name} instances ...")
 
         path = f'{self.collection_root}/collections/{self.collection_name}/{name}_instances/'
+        temp_path = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/'
         Path(f'{path}').mkdir(parents=True, exist_ok=True)
+        Path(f'{temp_path}').mkdir(parents=True, exist_ok=True)
 
         for i in range(nb_instances):
+            file = f'{self.collection_root}/collections/{self.collection_name}/{name}_instances/instance_{i + 1}.lp'
+            temp_file = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/instance_{i + 1}.lp'
+
             instance = next(self.instance_generator)
-            if instance not in (self.val_instances + self.test_instances):  # TODO
-                instance.write_problem(f'{path}instance_{i+1}.lp')
-                if name == 'validation':
-                    self.val_instances.append(instance)
-                if name == 'test':
-                    self.test_instances.append(instance)
-            else:
+            instance.write_problem(temp_file)
+
+            if self.instance_unavailable(temp_file):
+                print(f"{name.capitalize()} instance {i + 1} already exist and will be discarded.")
+                os.remove(temp_file)
                 continue
+
+            os.rename(temp_file, file)
+
+            if name == 'validation':
+                self.val_instances.append(instance)
+            if name == 'test':
+                self.test_instances.append(instance)
+            if name == 'train':
+                self.train_instances.append(instance)
+
+        os.rmdir(temp_path)
 
     def load_instances(self, name='validation'):
         path = f'{self.collection_root}/collections/{self.collection_name}/{name}_instances/'
@@ -154,6 +156,8 @@ class DataCollector:
             self.val_instances = loaded_instances
         if name == 'test':
             self.test_instances = loaded_instances
+        if name == 'train':
+            self.train_instances = loaded_instances
         return loaded_instances
 
     def set_instances(self, name='validation'):
@@ -165,7 +169,12 @@ class DataCollector:
                 print(f"Loading {name} instances ...")
         if name == 'test':
             if len(self.test_instances) == 0:
-                self.save_instances(self.nb_val_instances, name=name)
+                self.save_instances(self.nb_test_instances, name=name)
+            else:
+                print(f"Loading {name} instances ...")
+        if name == 'train':
+            if len(self.train_instances) == 0:
+                self.save_instances(self.nb_train_instances, name=name)
             else:
                 print(f"Loading {name} instances ...")
 

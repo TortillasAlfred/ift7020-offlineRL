@@ -1,2 +1,3 @@
 collections
 .idea
+*/__pycache__/
