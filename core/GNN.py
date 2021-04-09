@@ -1,3 +1,7 @@
+import torch
+import torch.nn.functional as F
+import torch_geometric
+
 class GCNPolicy(torch.nn.Module):
     def __init__(self, nbrConvLayer = 1, nbrLinLayer = 1, emb_size = 64):
         super().__init__()
@@ -115,4 +119,7 @@ class BipartiteGraphConvolution(torch_geometric.nn.MessagePassing):
         return output
     
 
-policy = GCNPolicy(nbrConvLayer = 2, nbrLinLayer = 2, emb_size = 32).to(DEVICE)
+if __name__ == "__main__":
+    DEVICE = "cuda" if torch.cuda.is_available() else  "cpu"
+    
+    policy = GCNPolicy(nbrConvLayer = 2, nbrLinLayer = 2, emb_size = 32).to(DEVICE)
