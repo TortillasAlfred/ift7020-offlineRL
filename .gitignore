@@ -1,3 +1,4 @@
 collections
 .idea
 */__pycache__/
+.vscode
