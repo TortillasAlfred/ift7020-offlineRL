@@ -5,6 +5,8 @@ import ecole
 from pathlib import Path
 import os
 import filecmp
+import psutil
+import time
 
 
 class DataCollector:
@@ -31,7 +33,17 @@ class DataCollector:
         self.set_instances(name='test')
         self.set_instances(name='train')
 
-    def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10, expert_probability=0.05):
+    def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10,
+                              expert_probability=0.05, verbose=False):
+        if verbose:
+            cpu_pct = []
+            cpus_pct = []
+            ram_active = []
+            ram_used = []
+            ram_pct = []
+            collect_trajectory_times = []
+            start_total_time = time.time()
+
         # We can pass custom SCIP parameters easily
         scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
@@ -60,12 +72,20 @@ class DataCollector:
             Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i + 1}/').mkdir(
                 parents=True, exist_ok=True)
 
-            for j in range(len(self.train_instances)):
+            for j in range(nb_train_trajectories):
                 observation, action_set, _, done, rewards = env.reset(instance)
 
                 trajectory = []
                 strong_branching = 0
                 weak_branching = 0
+
+                if verbose:
+                    start_time = time.time()
+                    cpu_pct.append(psutil.cpu_percent())
+                    cpus_pct.append(psutil.cpu_percent(percpu=True))
+                    ram_used.append(psutil.virtual_memory().used / 1e+9)
+                    ram_active.append(psutil.virtual_memory().active / 1e+9)
+                    ram_pct.append(psutil.virtual_memory().percent)
 
                 while not done:
                     (scores, scores_are_expert), node_observation = observation
@@ -83,6 +103,8 @@ class DataCollector:
 
                     trajectory.append([node_observation, action, action_set, rewards])
                     observation, action_set, _, done, rewards = env.step(action)
+                if verbose:
+                    collect_trajectory_times.append(time.time() - start_time)
 
                 filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i+1}/trajectory_{j+1}.pkl'
                 if len(trajectory) > 0:
@@ -100,6 +122,10 @@ class DataCollector:
         print(f"\nCollected {(len(self.train_instances) * nb_train_trajectories) - discarded_trajectories} trajectories, containing"
               f" an average of {np.round(np.mean(strong_branching_list),2)} strong branching and an average"
               f" of {np.round(np.mean(weak_branching_list),2)} weak branching.")
+
+        if verbose:
+            collect_trajectories_total_time = time.time() - start_total_time
+            return cpu_pct, cpus_pct, ram_used, ram_active, ram_pct, collect_trajectory_times, collect_trajectories_total_time
 
     def load_training_trajectories(self, trajectories_name='trajectories_name'):
         dataset_path = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/'
