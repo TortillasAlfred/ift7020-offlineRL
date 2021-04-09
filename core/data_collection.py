@@ -60,7 +60,7 @@ class DataCollector:
             Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i + 1}/').mkdir(
                 parents=True, exist_ok=True)
 
-            for j in range(len(self.train_instances)):
+            for j in range(nb_train_trajectories):
                 observation, action_set, _, done, rewards = env.reset(instance)
 
                 trajectory = []
