@@ -73,7 +73,7 @@ class DataCollector:
                 parents=True, exist_ok=True)
 
             for j in range(nb_train_trajectories):
-                observation, action_set, _, done, rewards = env.reset(instance)
+                observation, action_set, _, terminal, rewards = env.reset(instance)
 
                 trajectory = []
                 strong_branching = 0
@@ -87,7 +87,7 @@ class DataCollector:
                     ram_active.append(psutil.virtual_memory().active / 1e+9)
                     ram_pct.append(psutil.virtual_memory().percent)
 
-                while not done:
+                while not terminal:
                     (scores, scores_are_expert), node_observation = observation
                     if scores_are_expert:
                         strong_branching += 1
@@ -101,8 +101,10 @@ class DataCollector:
 
                     action = action_set[scores[action_set].argmax()]
 
-                    trajectory.append([node_observation, action, action_set, rewards])
-                    observation, action_set, _, done, rewards = env.step(action)
+                    trajectory.append([node_observation, action, action_set, rewards, terminal])
+                    observation, action_set, _, terminal, rewards = env.step(action)
+                    if terminal:
+                        trajectory[-1][-1] = True
                 if verbose:
                     collect_trajectory_times.append(time.time() - start_time)
 
@@ -237,13 +239,13 @@ class ExploreThenStrongBranch:
         self.pseudocosts_function.before_reset(model)
         self.strong_branching_function.before_reset(model)
 
-    def extract(self, model, done):
+    def extract(self, model, terminal):
         """
         Should we return strong branching or pseudocost scores at time node?
         """
         probabilities = [1 - self.expert_probability, self.expert_probability]
         expert_chosen = bool(np.random.choice(np.arange(2), p=probabilities))
         if expert_chosen:
-            return (self.strong_branching_function.extract(model, done), True)
+            return (self.strong_branching_function.extract(model, terminal), True)
         else:
-            return (self.pseudocosts_function.extract(model, done), False)
+            return (self.pseudocosts_function.extract(model, terminal), False)

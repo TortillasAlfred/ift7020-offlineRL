@@ -38,7 +38,7 @@ class GraphDataset(torch_geometric.data.Dataset):
 
         for sample in trajectory:
 
-            sample_observation, sample_action, sample_action_set, sample_rewards = sample
+            sample_observation, sample_action, sample_action_set, sample_rewards, terminal = sample
 
             rewards = torch.from_numpy(np.array(list(sample_rewards.values())))
             constraint_features, (edge_indices, edge_features), variable_features = sample_observation
@@ -46,6 +46,7 @@ class GraphDataset(torch_geometric.data.Dataset):
             edge_indices = torch.from_numpy(edge_indices.astype(np.int64))
             edge_features = torch.from_numpy(edge_features.astype(np.float32)).view(-1, 1)
             variable_features = torch.from_numpy(variable_features.astype(np.float32))
+            terminal = torch.as_tensor(int(terminal))
 
             # We note on which variables we were allowed to branch, the scores as well as the choice
             # taken by strong branching (relative to the candidates)
@@ -53,7 +54,7 @@ class GraphDataset(torch_geometric.data.Dataset):
             candidate_choice = sample_action
 
             graph = BipartiteNodeData(constraint_features, edge_indices, edge_features, variable_features,
-                                      candidates, candidate_choice, rewards)
+                                      candidates, candidate_choice, rewards, terminal)
 
             # We must tell pytorch geometric how many nodes there are, for indexing purposes
             graph.num_nodes = constraint_features.shape[0] + variable_features.shape[0]
@@ -68,7 +69,7 @@ class BipartiteNodeData(torch_geometric.data.Data):
     observation function in a format understood by the pytorch geometric data handlers.
     """
     def __init__(self, constraint_features, edge_indices, edge_features, variable_features,
-                 candidates, candidate_choice, rewards):
+                 candidates, candidate_choice, rewards, terminal):
         super().__init__()
         self.constraint_features = constraint_features
         self.edge_index = edge_indices
@@ -78,6 +79,7 @@ class BipartiteNodeData(torch_geometric.data.Data):
         self.nb_candidates = len(candidates)
         self.candidate_choice = candidate_choice
         self.rewards = rewards
+        self.terminal = terminal
 
     def __inc__(self, key, value):
         """
