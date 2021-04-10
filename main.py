@@ -14,16 +14,9 @@ if __name__ == '__main__':
                                    nb_test_instances=2)
 
     # Collect trajectories from the training instances collection
-    cpu_pct, cpus_pct, ram_used, ram_active, ram_pct, collect_trajectory_times,\
-    collect_trajectories_total_time = data_collector.collect_training_data(trajectories_name=trajectories_name,
-                                                                                  nb_train_trajectories=10,
-                                                                                  expert_probability=0.05,
-                                                                                  verbose=True)
-
-    print('collect_trajectories_total_time', collect_trajectories_total_time)
-    data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct,
-                                 ram_used, ram_active, collect_trajectory_times,
-                                 collection_name, trajectories_name)
+    data_collector.collect_training_data(trajectories_name=trajectories_name,
+                                         nb_train_trajectories=10,
+                                         expert_probability=0.05)
 
     # Load encoded trajectories
     training_trajectories = GraphDataset(collection_name=collection_name,
