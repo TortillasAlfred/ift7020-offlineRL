@@ -120,6 +120,22 @@ class BipartiteGraphConvolution(torch_geometric.nn.MessagePassing):
     
 
 if __name__ == "__main__":
+    from core import GraphDataset
+
     DEVICE = "cuda" if torch.cuda.is_available() else  "cpu"
-    
+    DEVICE = "cpu"
+    collection_name = '10_instances_collection'
+    trajectories_name = '10_trajectories'
+
+    # Load encoded trajectories
+    training_trajectories = GraphDataset(collection_name=collection_name,
+                                         trajectories_name=trajectories_name)
+
+    # Get a specific trajectory
+    graphs = training_trajectories.get(0)
+
     policy = GCNPolicy(nbrConvLayer = 2, nbrLinLayer = 2, emb_size = 32).to(DEVICE)
+
+    batch = graphs[0]
+
+    policy(batch.constraint_features, batch.edge_index, batch.edge_attr, batch.variable_features)
