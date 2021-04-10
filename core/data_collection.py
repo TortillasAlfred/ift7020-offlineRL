@@ -108,7 +108,8 @@ class DataCollector:
                 if verbose:
                     collect_trajectory_times.append(time.time() - start_time)
 
-                filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i+1}/trajectory_{j+1}.pkl'
+                filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/' \
+                           f'instance_{i+1}/trajectory_{j+1}_samples_{len(trajectory)}.pkl'
                 if len(trajectory) > 0:
                     with gzip.open(filename, 'wb') as f:
                         pickle.dump(trajectory, f)

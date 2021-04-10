@@ -4,6 +4,7 @@ import torch
 import torch_geometric
 import numpy as np
 import os
+import re
 
 
 class GraphDataset(torch_geometric.data.Dataset):
@@ -16,13 +17,21 @@ class GraphDataset(torch_geometric.data.Dataset):
         super().__init__(root=None, transform=None, pre_transform=None)
         collection_path = f'{root}/collections/{collection_name}/{trajectories_name}/'
 
-        self.dataset = []
+        self.dataset_paths = []
+        self.indices_trajectory = []
+        self.trajectories = {}
 
+        i = 1
         for _, directories, _ in os.walk(collection_path):
             for directory in directories:
                 for _, _, files in os.walk(collection_path + directory):
                     for file in files:
-                        self.dataset.append(f'{collection_path}{directory}/{file}')
+                        self.dataset_paths.append(f'{collection_path}{directory}/{file}')
+                        nb_samples = int(re.compile("samples_(.*).pkl").search(self.dataset_paths[-1]).group(1))
+                        self.trajectories[i] = nb_samples
+                        for sample in range(nb_samples):
+                            self.indices_trajectory.append(i)
+                        i += 1
 
     def len(self):
         return len(self.dataset)
@@ -31,36 +40,43 @@ class GraphDataset(torch_geometric.data.Dataset):
         """
         This method loads a node bipartite graph observation as saved on the disk during data collection.
         """
-        with gzip.open(self.dataset[index], 'rb') as f:
+        sample_index = next(i for i, x in enumerate(self.indices_trajectory) if x == index+1)
+        with gzip.open(self.dataset_paths[self.indices_trajectory[index]], 'rb') as f:
             trajectory = pickle.load(f)
 
-        graphs = []
+        sample_observation, sample_action, sample_action_set, sample_rewards, terminal = trajectory[sample_index]
+        next_sample_observation = None
+        if not terminal:
+            next_sample_observation, _, _, _, _ = trajectory[sample_index+1]
 
-        for sample in trajectory:
+        rewards = torch.from_numpy(np.array(list(sample_rewards.values())))
+        constraint_features, (edge_indices, edge_features), variable_features = sample_observation
+        constraint_features = torch.from_numpy(constraint_features.astype(np.float32))
+        edge_indices = torch.from_numpy(edge_indices.astype(np.int64))
+        edge_features = torch.from_numpy(edge_features.astype(np.float32)).view(-1, 1)
+        variable_features = torch.from_numpy(variable_features.astype(np.float32))
 
-            sample_observation, sample_action, sample_action_set, sample_rewards, terminal = sample
+        next_constraint_features, (next_edge_indices, next_edge_features), next_variable_features = next_sample_observation
+        next_constraint_features = torch.from_numpy(next_constraint_features.astype(np.float32))
+        next_edge_indices = torch.from_numpy(next_edge_indices.astype(np.int64))
+        next_edge_features = torch.from_numpy(next_edge_features.astype(np.float32)).view(-1, 1)
+        next_variable_features = torch.from_numpy(next_variable_features.astype(np.float32))
 
-            rewards = torch.from_numpy(np.array(list(sample_rewards.values())))
-            constraint_features, (edge_indices, edge_features), variable_features = sample_observation
-            constraint_features = torch.from_numpy(constraint_features.astype(np.float32))
-            edge_indices = torch.from_numpy(edge_indices.astype(np.int64))
-            edge_features = torch.from_numpy(edge_features.astype(np.float32)).view(-1, 1)
-            variable_features = torch.from_numpy(variable_features.astype(np.float32))
-            terminal = torch.as_tensor(int(terminal))
+        terminal = torch.as_tensor(int(terminal))
 
-            # We note on which variables we were allowed to branch, the scores as well as the choice
-            # taken by strong branching (relative to the candidates)
-            candidates = torch.LongTensor(np.array(sample_action_set, dtype=np.int32))
-            candidate_choice = sample_action
+        # We note on which variables we were allowed to branch, the scores as well as the choice
+        # taken by strong branching (relative to the candidates)
+        candidates = torch.LongTensor(np.array(sample_action_set, dtype=np.int32))
+        candidate_choice = sample_action
 
-            graph = BipartiteNodeData(constraint_features, edge_indices, edge_features, variable_features,
-                                      candidates, candidate_choice, rewards, terminal)
+        graph = BipartiteNodeData(constraint_features, edge_indices, edge_features, variable_features,
+                                  candidates, candidate_choice, rewards, terminal, next_constraint_features,
+                                  next_edge_indices, next_edge_features, next_variable_features)
 
-            # We must tell pytorch geometric how many nodes there are, for indexing purposes
-            graph.num_nodes = constraint_features.shape[0] + variable_features.shape[0]
-            graphs.append(graph)
+        # We must tell pytorch geometric how many nodes there are, for indexing purposes
+        graph.num_nodes = constraint_features.shape[0] + variable_features.shape[0]
 
-        return graphs
+        return graph
 
 
 class BipartiteNodeData(torch_geometric.data.Data):
@@ -69,12 +85,17 @@ class BipartiteNodeData(torch_geometric.data.Data):
     observation function in a format understood by the pytorch geometric data handlers.
     """
     def __init__(self, constraint_features, edge_indices, edge_features, variable_features,
-                 candidates, candidate_choice, rewards, terminal):
+                 candidates, candidate_choice, rewards, terminal, next_constraint_features,
+                 next_edge_indices, next_edge_features, next_variable_features):
         super().__init__()
         self.constraint_features = constraint_features
         self.edge_index = edge_indices
         self.edge_attr = edge_features
-        self.variable_features = variable_features
+        self.variable_features = next_variable_features
+        self.next_constraint_features = next_constraint_features
+        self.next_edge_index = next_edge_indices
+        self.next_edge_attr = next_edge_features
+        self.next_variable_features = variable_features
         self.candidates = candidates
         self.nb_candidates = len(candidates)
         self.candidate_choice = candidate_choice
