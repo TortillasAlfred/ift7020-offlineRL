@@ -6,3 +6,4 @@ torch-scatter
 torch-cluster
 torch-spline-conv
 torch-geometric
+psutil
