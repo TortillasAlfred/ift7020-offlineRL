@@ -5,6 +5,8 @@ import ecole
 from pathlib import Path
 import os
 import filecmp
+import psutil
+import time
 
 
 class DataCollector:
@@ -32,7 +34,16 @@ class DataCollector:
         self.set_instances(name='train')
 
     def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10,
-                              expert_probability=0.05):
+                              expert_probability=0.05, verbose=False):
+        if verbose:
+            cpu_pct = []
+            cpus_pct = []
+            ram_active = []
+            ram_used = []
+            ram_pct = []
+            collect_trajectory_times = []
+            start_total_time = time.time()
+
         # We can pass custom SCIP parameters easily
         scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
@@ -47,11 +58,19 @@ class DataCollector:
         # This will seed the environment for reproducibility
         env.seed(0)
 
+        # We will solve problems (run episodes) until we reach the number of episodes
+
+        strong_branching_list = []
+        weak_branching_list = []
+        discarded_trajectories = 0
+
         Path(f'{self.collection_root}/collections/{self.collection_name}/train_instances/').mkdir(parents=True, exist_ok=True)
-        Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}').mkdir(parents=True, exist_ok=True)
 
         for i, instance in enumerate(self.train_instances):
             print(f"\nCollecting training trajectories for instance {i+1} ...")
+
+            Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/instance_{i + 1}/').mkdir(
+                parents=True, exist_ok=True)
 
             for j in range(nb_train_trajectories):
                 observation, action_set, _, terminal, rewards = env.reset(instance)
@@ -59,6 +78,14 @@ class DataCollector:
                 trajectory = []
                 strong_branching = 0
                 weak_branching = 0
+
+                if verbose:
+                    start_time = time.time()
+                    cpu_pct.append(psutil.cpu_percent())
+                    cpus_pct.append(psutil.cpu_percent(percpu=True))
+                    ram_used.append(psutil.virtual_memory().used / 1e+9)
+                    ram_active.append(psutil.virtual_memory().active / 1e+9)
+                    ram_pct.append(psutil.virtual_memory().percent)
 
                 while not terminal:
                     (scores, scores_are_expert), node_observation = observation
@@ -74,18 +101,46 @@ class DataCollector:
 
                     action = action_set[scores[action_set].argmax()]
 
-                    if len(trajectory) != 0:
-                        trajectory[-1][-1] = node_observation
-                    trajectory.append([node_observation, action, action_set, scores, rewards, terminal, None])
+                    trajectory.append([node_observation, action, action_set, rewards, terminal])
                     observation, action_set, _, terminal, rewards = env.step(action)
                     if terminal:
-                        trajectory[-1][5] = True
+                        trajectory[-1][-1] = True
+                if verbose:
+                    collect_trajectory_times.append(time.time() - start_time)
 
-                for k in range(len(trajectory)):
-                    filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/' \
-                               f'instance_{i + 1}_trajectory_{j + 1}_sample_{k}.pkl'
+                filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/' \
+                           f'instance_{i+1}/trajectory_{j+1}_samples_{len(trajectory)}.pkl'
+                if len(trajectory) > 0:
                     with gzip.open(filename, 'wb') as f:
-                        pickle.dump(trajectory[k], f)
+                        pickle.dump(trajectory, f)
+
+                    strong_branching_list.append(strong_branching)
+                    weak_branching_list.append(weak_branching)
+                    print(f"Trajectory for episode {j+1} contains {strong_branching} strong branching and "
+                          f"{weak_branching} weak branching.")
+                else:
+                    discarded_trajectories += 1
+                    print(f"Trajectory for episode {j+1} is empty and will be discarded.")
+
+        print(f"\nCollected {(len(self.train_instances) * nb_train_trajectories) - discarded_trajectories} trajectories, containing"
+              f" an average of {np.round(np.mean(strong_branching_list),2)} strong branching and an average"
+              f" of {np.round(np.mean(weak_branching_list),2)} weak branching.")
+
+        if verbose:
+            collect_trajectories_total_time = time.time() - start_total_time
+            return cpu_pct, cpus_pct, ram_used, ram_active, ram_pct, collect_trajectory_times, collect_trajectories_total_time
+
+    def load_training_trajectories(self, trajectories_name='trajectories_name'):
+        dataset_path = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/'
+        trajectories = []
+
+        for _, directories, _ in os.walk(dataset_path):
+            for directory in directories:
+                for _, _, files in os.walk(dataset_path+directory):
+                    for file in files:
+                        with gzip.open(f"{dataset_path}{directory}/{file}", 'rb') as f:
+                            trajectories.append(pickle.load(f))
+        return trajectories
 
     def save_instances(self, nb_instances, name='validation'):
         print(f"Saving {name} instances ...")
