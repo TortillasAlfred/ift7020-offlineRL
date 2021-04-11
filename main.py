@@ -1,5 +1,4 @@
 from core import DataCollector, GraphDataset, GNNPolicy, process_epoch
-import time
 import torch
 import torch.nn.functional as F
 import torch_geometric
@@ -7,22 +6,21 @@ import glob
 
 
 if __name__ == '__main__':
-    start = time.time()
     collection_root = '.'
     collection_name = '10_instances_collection'
-    trajectories_name = '10_trajectories'
+    trajectories_name = '10_trajectories_expert_1_00'
 
     # Instances are created or loaded at initialization
     data_collector = DataCollector(collection_root=collection_root,
                                    collection_name=collection_name,
-                                   nb_train_instances=2,
-                                   nb_val_instances=2,
-                                   nb_test_instances=2)
+                                   nb_train_instances=10,
+                                   nb_val_instances=10,
+                                   nb_test_instances=10)
 
     # Collect trajectories from the training instances collection
     data_collector.collect_training_data(trajectories_name=trajectories_name,
-                                         nb_train_trajectories=2,
-                                         expert_probability=0.05)
+                                         nb_train_trajectories=10,
+                                         expert_probability=1.0)
 
     # Train GNN
     LEARNING_RATE = 0.001
@@ -39,9 +37,9 @@ if __name__ == '__main__':
     valid_files = sample_files[int(0.8 * len(sample_files)):]
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=1, shuffle=True)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=32, shuffle=True)
     valid_data = GraphDataset(valid_files)
-    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=1, shuffle=False)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=128, shuffle=False)
 
     policy = GNNPolicy().to(DEVICE)
 
