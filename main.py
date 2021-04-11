@@ -59,6 +59,8 @@ if __name__ == '__main__':
         print(action_distribution)
 
         optimizer = torch.optim.Adam(policy.parameters(), lr=LEARNING_RATE)
+        prev_max_val_acc = 0.0
+        n_epochs_no_better_val = 0
         for epoch in range(NB_EPOCHS):
             print(f"Epoch {epoch + 1}")
 
@@ -67,5 +69,15 @@ if __name__ == '__main__':
 
             valid_loss, valid_acc = process_epoch(policy, valid_loader, None, device=DEVICE)
             print(f"Valid loss: {valid_loss:0.3f}, accuracy {valid_acc:0.3f}")
+
+            if valid_acc > prev_max_val_acc:
+                prev_max_val_acc = valid_acc
+                n_epochs_no_better_val = 0
+            else:
+                n_epochs_no_better_val += 1
+            
+            if n_epochs_no_better_val >= EARLY_STOPPING:
+                print(f"Early stopping after {epoch + 1} epochs, the last {EARLY_STOPPING} of which without validation improvement.")
+                break
 
         torch.save(policy.state_dict(), f'{path}GCNN_trained_params.pkl')
