@@ -159,6 +159,7 @@ class BipartiteNodeData(torch_geometric.data.Data):
         self.next_candidates = next_candidates
         self.candidate_scores = candidate_scores
         self.nb_candidates = len(candidates)
+        self.next_nb_candidates = len(next_candidates)
         self.candidate_choice = candidate_choice
         self.rewards = rewards
         self.terminal = terminal
