@@ -74,16 +74,19 @@ class DataCollector:
 
                     action = action_set[scores[action_set].argmax()]
 
-                    if len(trajectory) != 0:
-                        trajectory[-1][-1] = node_observation
-                    trajectory.append([node_observation, action, action_set, scores, rewards, terminal, None])
+                    if len(trajectory) > 0:
+                        trajectory[-1][-2] = node_observation
+                        trajectory[-1][-1] = action_set
+
+                    # node_observation, action, next_action_set, scores, rewards, terminal, next_node_observation, next_action_set
+                    trajectory.append([node_observation, action, action_set, scores, rewards, terminal, None, None])
                     observation, action_set, _, terminal, rewards = env.step(action)
                     if terminal:
                         trajectory[-1][5] = True
 
                 for k in range(len(trajectory)):
                     filename = f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}/' \
-                               f'instance_{i + 1}_trajectory_{j + 1}_sample_{k}.pkl'
+                               f'instance_{i + 1}_trajectory_{j + 1}_sample_{k+1}.pkl'
                     with gzip.open(filename, 'wb') as f:
                         pickle.dump(trajectory[k], f)
 

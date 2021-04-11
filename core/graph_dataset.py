@@ -28,7 +28,7 @@ class GraphDataset(torch_geometric.data.Dataset):
             sample = pickle.load(f)
 
         sample_observation, sample_action, sample_action_set, sample_scores, sample_rewards,\
-            terminal, next_sample_observation = sample
+            terminal, next_sample_observation, next_sample_action_set = sample
 
         rewards = torch.from_numpy(np.array(list(sample_rewards.values())))
         constraint_features, (edge_indices, edge_features), variable_features = sample_observation
@@ -36,19 +36,6 @@ class GraphDataset(torch_geometric.data.Dataset):
         edge_indices = torch.from_numpy(edge_indices.astype(np.int64))
         edge_features = torch.from_numpy(edge_features.astype(np.float32)).view(-1, 1)
         variable_features = torch.from_numpy(variable_features.astype(np.float32))
-
-        next_constraint_features = None
-        next_edge_indices = None
-        next_edge_features = None
-        next_variable_features = None
-
-        if next_sample_observation is not None:
-            next_constraint_features, (next_edge_indices, next_edge_features), next_variable_features = next_sample_observation
-            next_constraint_features = torch.from_numpy(next_constraint_features.astype(np.float32))
-            next_edge_indices = torch.from_numpy(next_edge_indices.astype(np.int64))
-            next_edge_features = torch.from_numpy(next_edge_features.astype(np.float32)).view(-1, 1)
-            next_variable_features = torch.from_numpy(next_variable_features.astype(np.float32))
-
         terminal = torch.as_tensor(int(terminal))
 
         # We note on which variables we were allowed to branch, the scores as well as the choice
@@ -57,8 +44,22 @@ class GraphDataset(torch_geometric.data.Dataset):
         candidate_scores = torch.FloatTensor([sample_scores[j] for j in candidates])
         candidate_choice = torch.where(candidates == sample_action)[0][0]
 
+        if not terminal:
+            next_constraint_features, (next_edge_indices, next_edge_features), next_variable_features = next_sample_observation
+            next_constraint_features = torch.from_numpy(next_constraint_features.astype(np.float32))
+            next_edge_indices = torch.from_numpy(next_edge_indices.astype(np.int64))
+            next_edge_features = torch.from_numpy(next_edge_features.astype(np.float32)).view(-1, 1)
+            next_variable_features = torch.from_numpy(next_variable_features.astype(np.float32))
+            next_candidates = torch.LongTensor(np.array(next_sample_action_set, dtype=np.int32))
+        else:
+            next_constraint_features = constraint_features.clone()
+            next_edge_indices = edge_indices.clone()
+            next_edge_features = edge_features.clone()
+            next_variable_features = variable_features.clone()
+            next_candidates = candidates.clone()
+
         graph = BipartiteNodeData(constraint_features, edge_indices, edge_features, variable_features,
-                                  candidates, candidate_scores, candidate_choice, rewards, terminal, next_constraint_features,
+                                  candidates, next_candidates, candidate_scores, candidate_choice, rewards, terminal, next_constraint_features,
                                   next_edge_indices, next_edge_features, next_variable_features)
 
         # We must tell pytorch geometric how many nodes there are, for indexing purposes
@@ -143,7 +144,7 @@ class BipartiteNodeData(torch_geometric.data.Data):
     observation function in a format understood by the pytorch geometric data handlers.
     """
     def __init__(self, constraint_features, edge_indices, edge_features, variable_features,
-                 candidates, candidate_scores, candidate_choice, rewards, terminal, next_constraint_features,
+                 candidates, next_candidates, candidate_scores, candidate_choice, rewards, terminal, next_constraint_features,
                  next_edge_indices, next_edge_features, next_variable_features):
         super().__init__()
         self.constraint_features = constraint_features
@@ -155,6 +156,7 @@ class BipartiteNodeData(torch_geometric.data.Data):
         self.next_edge_attr = next_edge_features
         self.next_variable_features = next_variable_features
         self.candidates = candidates
+        self.next_candidates = next_candidates
         self.candidate_scores = candidate_scores
         self.nb_candidates = len(candidates)
         self.candidate_choice = candidate_choice
@@ -170,5 +172,9 @@ class BipartiteNodeData(torch_geometric.data.Data):
             return torch.tensor([[self.constraint_features.size(0)], [self.variable_features.size(0)]])
         elif key == 'candidates':
             return self.variable_features.size(0)
+        elif key == 'next_edge_index':
+            return torch.tensor([[self.next_constraint_features.size(0)], [self.next_variable_features.size(0)]])
+        elif key == 'next_candidates':
+            return self.next_variable_features.size(0)
         else:
             return super().__inc__(key, value)
