@@ -2,10 +2,13 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch_geometric
+from core import GraphDataset, GNNPolicy
+import glob
+from pathlib import Path
 
 
-def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_active, collect_trajectory_times,
-                                 collection_name, trajectories_name):
+def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_active, collect_trajectory_times):
     fig, axs = plt.subplots(3)
     axs[0].plot(cpu_pct, label='cpu_pct')
     axs[0].plot(ram_pct, label='ram_pct')
@@ -22,6 +25,49 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
     axs[2].set_ylabel('Seconds')
     axs[2].legend()
     plt.show()
+
+
+def train_gnn(collection_root, collection_name, trajectories_name):
+    # Train GNN
+    LEARNING_RATE = 0.001
+    NB_EPOCHS = 50
+    PATIENCE = 10
+    MIN_DELTA = 0.01
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    path = f'{collection_root}/collections/{collection_name}/{trajectories_name}/'
+
+    sample_files = [str(file_path) for file_path in glob.glob(f'{path}*')]
+    sample_files.sort()
+    train_files = sample_files[:int(0.8 * len(sample_files))]
+    valid_files = sample_files[int(0.8 * len(sample_files)):]
+
+    train_data = GraphDataset(train_files)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=32, shuffle=True)
+    valid_data = GraphDataset(valid_files)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=128, shuffle=False)
+
+    policy = GNNPolicy().to(DEVICE)
+
+    valid_accuracies = []
+    optimizer = torch.optim.Adam(policy.parameters(), lr=LEARNING_RATE)
+    for epoch in range(NB_EPOCHS):
+        print(f"Epoch {epoch + 1}")
+
+        train_loss, train_acc = process_epoch(policy, train_loader, optimizer, device=DEVICE)
+        print(f"Train loss: {train_loss:0.3f}, accuracy {train_acc:0.3f}")
+
+        valid_loss, valid_acc = process_epoch(policy, valid_loader, None, device=DEVICE)
+        print(f"Valid loss: {valid_loss:0.3f}, accuracy {valid_acc:0.3f}")
+
+        valid_accuracies.append(valid_acc)
+        if len(valid_accuracies) > PATIENCE:
+            if (np.diff(valid_accuracies[-PATIENCE:]) < MIN_DELTA).all():
+                print('Validation accuracies stopped improving, training stopped.')
+                break
+
+    Path(f'{path}/trained_params/').mkdir(parents=True, exist_ok=True)
+    torch.save(policy.state_dict(), f'{path}/trained_params/GCNN_trained_params.pkl')
 
 
 def process_epoch(policy, data_loader, optimizer=None, device='cuda'):

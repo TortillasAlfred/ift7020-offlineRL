@@ -5,6 +5,9 @@ import ecole
 from pathlib import Path
 import os
 import filecmp
+import shutil
+import glob
+import re
 
 
 class DataCollector:
@@ -51,7 +54,7 @@ class DataCollector:
         Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}').mkdir(parents=True, exist_ok=True)
 
         for i, instance in enumerate(self.train_instances):
-            print(f"\nCollecting training trajectories for instance {i+1} ...")
+            print(f"Collecting training trajectories for instance {i+1} ...")
 
             for j in range(nb_train_trajectories):
                 observation, action_set, _, terminal, rewards = env.reset(instance)
@@ -89,6 +92,22 @@ class DataCollector:
                                f'instance_{i + 1}_trajectory_{j + 1}_sample_{k+1}.pkl'
                     with gzip.open(filename, 'wb') as f:
                         pickle.dump(trajectory[k], f)
+
+    def collect_mixed_training_data(self, expert_probabilities, base_trajectories_name='base_trajectories_name',
+                                    nb_instances=10, nb_trajectories=10):
+        path = f'{self.collection_root}/collections/{self.collection_name}/{base_trajectories_name}'
+        mixed_trajectories_path = f'{path}_mixed'
+        Path(mixed_trajectories_path).mkdir(parents=True, exist_ok=True)
+
+        trajectories_per_expert = int(nb_trajectories / len(expert_probabilities))
+
+        for i in range(nb_instances):
+            for j in range(len(expert_probabilities)):
+                trajectories_path = f'{path}_{expert_probabilities[j]}'
+                sample_files = [str(file_path) for file_path in glob.glob(f'{trajectories_path}/instance_{i+1}_*')]
+                for sample in sample_files:
+                    if int(re.search('trajectory_(.*)_sample', sample).group(1)) in list(range(1, trajectories_per_expert+1)):
+                        shutil.copyfile(sample, sample.replace(f'{expert_probabilities[j]}', 'mixed') + f'_expert_{expert_probabilities[j]}')
 
     def save_instances(self, nb_instances, name='validation'):
         print(f"Saving {name} instances ...")
