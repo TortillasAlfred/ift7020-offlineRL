@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     if args.job_index > -1:
         proba_index = int(args.job_index / 50)
-        args.expert_probability = [0.0, 0.25, 0.1][proba_index]
+        args.expert_probability = [0.0, 0.25, 1.0][proba_index]
 
         args.job_index = args.job_index % 50
 
