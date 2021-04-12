@@ -62,7 +62,7 @@ def main(config):
                                  config.base_trajectories_name,
                                  config.expert_probabilities)
 
-    if config.train_gnn_weights:
+    if config.train_bc:
         run_all_behaviour_cloning(config.collection_root,
                                   config.collection_name,
                                   config.base_trajectories_name,
