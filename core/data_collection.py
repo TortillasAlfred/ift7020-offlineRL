@@ -126,6 +126,7 @@ class DataCollector:
         instances = []
 
         while len(instances) < nb_instances:
+            i = len(instances)
             file = f'{self.collection_root}/collections/{self.collection_name}/{name}_instances/instance_{i + 1}.lp'
             temp_file = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/instance_{i + 1}.lp'
 
@@ -139,7 +140,7 @@ class DataCollector:
 
             instances.append(instance)
             os.rename(temp_file, file)
-            
+
         if name == 'validation':
             self.val_instances = instances
         if name == 'test':
