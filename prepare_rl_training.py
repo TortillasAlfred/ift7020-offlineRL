@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--nb_instances', type=int, default=500)
-    parser.add_argument('--nb_trajectories', type=int, default=5)
+    parser.add_argument('--nb_trajectories', type=int, default=3)
     parser.add_argument('--collect_trajectories', type=int, default=1) # Fake boolean
     parser.add_argument('--train_bc', type=int, default=1) # Fake boolean
     parser.add_argument('--collection_root', type=str, default='.')
@@ -88,6 +88,6 @@ if __name__ == '__main__':
     # Default vals
     args.collection_name = f'{args.nb_instances}_instances_collection'
     args.base_trajectories_name = f'{args.nb_trajectories}_trajectories_expert'
-    args.expert_probabilities =  [0.0, 0.05, 0.2, 0.5, 1.0]
+    args.expert_probabilities =  [0.0, 0.25, 1.0]
 
     main(args)
