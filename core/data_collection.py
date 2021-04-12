@@ -123,8 +123,9 @@ class DataCollector:
         temp_path = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/'
         Path(f'{path}').mkdir(parents=True, exist_ok=True)
         Path(f'{temp_path}').mkdir(parents=True, exist_ok=True)
+        instances = []
 
-        for i in range(nb_instances):
+        while len(instances) < nb_instances:
             file = f'{self.collection_root}/collections/{self.collection_name}/{name}_instances/instance_{i + 1}.lp'
             temp_file = f'{self.collection_root}/collections/{self.collection_name}/temp_instances/instance_{i + 1}.lp'
 
@@ -136,14 +137,15 @@ class DataCollector:
                 os.remove(temp_file)
                 continue
 
+            instances.append(instance)
             os.rename(temp_file, file)
-
-            if name == 'validation':
-                self.val_instances.append(instance)
-            if name == 'test':
-                self.test_instances.append(instance)
-            if name == 'train':
-                self.train_instances.append(instance)
+            
+        if name == 'validation':
+            self.val_instances = instances
+        if name == 'test':
+            self.test_instances = instances
+        if name == 'train':
+            self.train_instances = instances 
 
         os.rmdir(temp_path)
 
