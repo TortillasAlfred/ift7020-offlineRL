@@ -90,7 +90,7 @@ def main(config):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--nb_instances', type=int, default=250)
+    parser.add_argument('--nb_instances', type=int, default=1000)
     parser.add_argument('--nb_trajectories', type=int, default=3)
     parser.add_argument('--collect_trajectories', type=int, default=0) # Fake boolean
     parser.add_argument('--train_bc', type=int, default=0) # Fake boolean
@@ -111,9 +111,9 @@ if __name__ == '__main__':
     args.base_trajectories_name = f'{args.nb_trajectories}_trajectories_expert'
 
     if args.job_index > -1:
-        proba_index = int(args.job_index / 50)
+        proba_index = int(args.job_index / 200)
         args.expert_probability = [0.0, 0.25, 1.0][proba_index]
 
-        args.job_index = args.job_index % 50
+        args.job_index = args.job_index % 200
 
     main(args)
