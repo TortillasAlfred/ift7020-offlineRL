@@ -18,7 +18,7 @@ def collect_all_trajectories(nb_instances,
 
     # Data collection (trajectories)
     for expert_probability in expert_probabilities:
-        print(f'Collecting trajectories with {expert_probabilities} expert probability.')
+        print(f'Collecting trajectories with {expert_probability} expert probability.')
 
         trajectories_name = f'{base_trajectories_name}_{expert_probability}'
 
