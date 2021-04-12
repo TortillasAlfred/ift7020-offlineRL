@@ -49,7 +49,8 @@ def train_gnn(collection_root, collection_name, trajectories_name):
 
     policy = GNNPolicy().to(DEVICE)
 
-    valid_accuracies = []
+    best_valid_accuracy = 0.0
+    n_epochs_no_improvement = 0
     optimizer = torch.optim.Adam(policy.parameters(), lr=LEARNING_RATE)
     for epoch in range(NB_EPOCHS):
         print(f"Epoch {epoch + 1}")
@@ -60,14 +61,20 @@ def train_gnn(collection_root, collection_name, trajectories_name):
         valid_loss, valid_acc = process_epoch(policy, valid_loader, None, device=DEVICE)
         print(f"Valid loss: {valid_loss:0.3f}, accuracy {valid_acc:0.3f}")
 
-        valid_accuracies.append(valid_acc)
-        if len(valid_accuracies) > PATIENCE:
-            if (np.diff(valid_accuracies[-PATIENCE:]) < MIN_DELTA).all():
-                print('Validation accuracies stopped improving, training stopped.')
-                break
+        if valid_acc >= best_valid_accuracy + MIN_DELTA:
+            # New best model: save its weights
+            Path(f'{path}/trained_params/').mkdir(parents=True, exist_ok=True)
+            torch.save(policy.state_dict(), f'{path}/trained_params/GCNN_trained_params.pkl')
 
-    Path(f'{path}/trained_params/').mkdir(parents=True, exist_ok=True)
-    torch.save(policy.state_dict(), f'{path}/trained_params/GCNN_trained_params.pkl')
+            # Reinit no_improvement counter and best_valid_accuracy
+            n_epochs_no_improvement = 0
+            best_valid_accuracy = valid_acc
+        else:
+            n_epochs_no_improvement += 1
+            if n_epochs_no_improvement >= PATIENCE:
+                print(f'Validation accuracies stopped improving. Max accuracy reached was {best_valid_accuracy}.' +
+                      f'Model weights saved at {path}/trained_params/GCNN_trained_params.pkl')
+                break
 
 
 def process_epoch(policy, data_loader, optimizer=None, device='cuda'):
