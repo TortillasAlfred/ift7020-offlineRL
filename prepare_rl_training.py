@@ -12,9 +12,7 @@ def collect_all_trajectories(nb_instances,
     # Instances are created or loaded at initialization
     data_collector = DataCollector(collection_root=collection_root,
                                    collection_name=collection_name,
-                                   nb_train_instances=nb_instances,
-                                   nb_val_instances=nb_instances,
-                                   nb_test_instances=nb_instances)
+                                   nb_train_instances=nb_instances)
 
     # Data collection (trajectories)
     for expert_probability in expert_probabilities:
@@ -73,7 +71,7 @@ def main(config):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--nb_instances', type=int, default=500)
+    parser.add_argument('--nb_instances', type=int, default=1000)
     parser.add_argument('--nb_trajectories', type=int, default=3)
     parser.add_argument('--collect_trajectories', type=int, default=1) # Fake boolean
     parser.add_argument('--train_bc', type=int, default=1) # Fake boolean

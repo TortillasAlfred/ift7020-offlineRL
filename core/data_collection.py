@@ -13,7 +13,7 @@ import re
 class DataCollector:
 
     def __init__(self, collection_root='.', collection_name='collection', nb_train_instances=100,
-                 nb_val_instances=20, nb_test_instances=20, set_cover_nb_rows=500, set_cover_nb_cols=1000,
+                 nb_val_instances=50, nb_test_instances=50, set_cover_nb_rows=500, set_cover_nb_cols=1000,
                  set_cover_density=0.05):
 
         self.collection_name = collection_name
