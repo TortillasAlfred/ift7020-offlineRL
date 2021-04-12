@@ -35,7 +35,7 @@ class DataCollector:
         self.set_instances(name='train')
 
     def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10,
-                              expert_probability=0.05):
+                              expert_probability=0.05, job_index=-1):
         # We can pass custom SCIP parameters easily
         scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
@@ -53,7 +53,12 @@ class DataCollector:
         Path(f'{self.collection_root}/collections/{self.collection_name}/train_instances/').mkdir(parents=True, exist_ok=True)
         Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}').mkdir(parents=True, exist_ok=True)
 
-        for i, instance in enumerate(self.train_instances):
+        if job_index > -1:
+            used_instances = self.train_instances[job_index * 10: (job_index + 1) * 10]
+        else:
+            used_instances = self.train_instances
+
+        for i, instance in enumerate(used_instances):
             print(f"Collecting training trajectories for instance {i+1} ...")
 
             for j in range(nb_train_trajectories):
