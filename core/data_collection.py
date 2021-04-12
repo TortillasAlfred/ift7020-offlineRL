@@ -13,7 +13,7 @@ import re
 class DataCollector:
 
     def __init__(self, collection_root='.', collection_name='collection', nb_train_instances=100,
-                 nb_val_instances=50, nb_test_instances=50, set_cover_nb_rows=500, set_cover_nb_cols=1000,
+                 nb_val_instances=20, nb_test_instances=20, set_cover_nb_rows=500, set_cover_nb_cols=1000,
                  set_cover_density=0.05):
 
         self.collection_name = collection_name
@@ -54,11 +54,13 @@ class DataCollector:
         Path(f'{self.collection_root}/collections/{self.collection_name}/{trajectories_name}').mkdir(parents=True, exist_ok=True)
 
         if job_index > -1:
-            used_instances = self.train_instances[job_index * 10: (job_index + 1) * 10]
+            n_instances_per_job = 5
+            used_numbers = list(range(job_index * n_instances_per_job, (job_index + 1) * n_instances_per_job))
+            used_instances = self.train_instances[job_index * n_instances_per_job: (job_index + 1) * n_instances_per_job]
         else:
-            used_instances = self.train_instances
+            used_numbers, used_instances = list(range(len(self.train_instances))), self.train_instances
 
-        for i, instance in enumerate(used_instances):
+        for i, instance in zip(used_numbers, used_instances):
             print(f"Collecting training trajectories for instance {i+1} ...")
 
             for j in range(nb_train_trajectories):
