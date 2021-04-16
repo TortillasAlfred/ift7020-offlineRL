@@ -1,4 +1,5 @@
 from core import DataCollector, train_gnn
+from core.utils import get_name_for_BC_config, save_work_done
 
 import argparse
 
@@ -31,14 +32,16 @@ def collect_trajectories(nb_instances,
                                          expert_probability=expert_probability,
                                          job_index=job_index)
 
-def run_behaviour_cloning(collection_root,
-                          collection_name,
+def run_behaviour_cloning(collection_name,
+                          working_path,
+                          saving_path,
                           base_trajectories_name,
                           expert_probability,
                           job_index,
                           train_batch_size,
                           test_batch_size,
-                          num_workers):
+                          num_workers,
+                          config_name):
 
     if job_index > -1:
         expert_probability = [0.0, 0.25, 1.0, "mixed"][job_index]
@@ -51,13 +54,16 @@ def run_behaviour_cloning(collection_root,
         print(f'Training BC for {expert_probability} expert probability dataset.')
 
         trajectories_name = f'{base_trajectories_name}_{expert_probability}'
-
-    train_gnn(collection_root, 
+    
+    train_gnn(working_path,
+              config_name, 
               collection_name, 
               trajectories_name,
               train_batch_size,
               test_batch_size,
               num_workers)
+
+    save_work_done(working_path, saving_path)
 
 def mixed_run(base_trajectories_name,
               collection_root,
@@ -80,32 +86,29 @@ def mixed_run(base_trajectories_name,
                                                 nb_instances=nb_instances,
                                                 nb_trajectories=nb_trajectories,
                                                 expert_probabilities=expert_probabilities)
-    
-    # Mixed expert probabilities
-    trajectories_name = f'{base_trajectories_name}_mixed'
-    print('Training BC for mixed dataset.')
-    
-    train_gnn(collection_root, collection_name, trajectories_name)
 
 def main(config):
     if config.collect_trajectories:
         collect_trajectories(config.nb_instances,
-                                 config.nb_trajectories,
-                                 config.collection_root,
-                                 config.collection_name,
-                                 config.base_trajectories_name,
-                                 config.expert_probability,
-                                 config.job_index)
+                             config.nb_trajectories,
+                             config.collection_root,
+                             config.collection_name,
+                             config.base_trajectories_name,
+                             config.expert_probability,
+                             config.job_index)
 
     if config.train_bc:
-        run_behaviour_cloning(config.collection_root,
-                                  config.collection_name,
-                                  config.base_trajectories_name,
-                                  config.expert_probability,
-                                  config.job_index,
-                                  config.train_batch_size,
-                                  config.test_batch_size,
-                                  config.num_workers)
+        config_name = get_name_for_BC_config(config)
+        run_behaviour_cloning(config.collection_name,
+                              config.working_path,
+                              config.saving_path,
+                              config.base_trajectories_name,
+                              config.expert_probability,
+                              config.job_index,
+                              config.train_batch_size,
+                              config.test_batch_size,
+                              config.num_workers,
+                              config_name)
 
     if config.mixed_run:
         mixed_run(config.base_trajectories_name,
@@ -122,7 +125,9 @@ if __name__ == '__main__':
     parser.add_argument('--collect_trajectories', type=int, default=0) # Fake boolean
     parser.add_argument('--train_bc', type=int, default=0) # Fake boolean
     parser.add_argument('--mixed_run', type=int, default=0) # Fake boolean
-    parser.add_argument('--collection_root', type=str, default='.')
+    parser.add_argument('--collection_root', type=str, default='.') # Only used for trajectory collection, inferred for BC
+    parser.add_argument('--working_path', type=str, default='.') # This is where we will work from 
+    parser.add_argument('--saving_path', type=str, default='.') # This is where we will persistently save the files
     parser.add_argument('--expert_probability', type=float, default=0.0)
     parser.add_argument('--job_index', type=int, default=-1)
     parser.add_argument('--train_batch_size', type=int, default=32)

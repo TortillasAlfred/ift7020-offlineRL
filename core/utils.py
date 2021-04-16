@@ -6,6 +6,11 @@ import torch_geometric
 from core import GraphDataset, GNNPolicy
 import glob
 from pathlib import Path
+import shutil
+import os
+from collections import defaultdict
+from tqdm import tqdm
+import pickle
 
 
 def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_active, collect_trajectory_times):
@@ -27,7 +32,7 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
     plt.show()
 
 
-def train_gnn(collection_root, collection_name, trajectories_name, train_batch_size, test_batch_size, num_workers):
+def train_gnn(working_path, config_name, collection_name, trajectories_name, train_batch_size, test_batch_size, num_workers):
     # Train GNN
     LEARNING_RATE = 0.001
     NB_EPOCHS = 50
@@ -35,9 +40,14 @@ def train_gnn(collection_root, collection_name, trajectories_name, train_batch_s
     MIN_DELTA = 0.01
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    path = f'{collection_root}/collections/{collection_name}/{trajectories_name}/'
+    trajectories_path = f'{working_path}/data/collections/{collection_name}/{trajectories_name}/'
+    models_path = f'{working_path}/models/'
+    results_path = f'{working_path}/train_results/'
 
-    sample_files = [str(file_path) for file_path in glob.glob(f'{path}*')]
+    Path(models_path).mkdir(parents=True, exist_ok=True)
+    Path(results_path).mkdir(parents=True, exist_ok=True)
+
+    sample_files = [str(file_path) for file_path in glob.glob(f'{trajectories_path}*')]
     sample_files.sort()
     train_files = sample_files[:int(0.8 * len(sample_files))]
     valid_files = sample_files[int(0.8 * len(sample_files)):]
@@ -49,10 +59,20 @@ def train_gnn(collection_root, collection_name, trajectories_name, train_batch_s
 
     policy = GNNPolicy().to(DEVICE)
 
+    train_results = defaultdict(list)
     best_valid_accuracy = 0.0
     n_epochs_no_improvement = 0
     optimizer = torch.optim.Adam(policy.parameters(), lr=LEARNING_RATE)
-    for epoch in range(NB_EPOCHS):
+    n_steps_per_epoch = len(train_loader)
+    n_steps_done = 0
+
+    valid_loss, valid_acc = process_epoch(policy, valid_loader, None, device=DEVICE)
+    print(f"Valid loss: {valid_loss:0.3f}, accuracy {valid_acc:0.3f}")
+
+    train_results["val_loss"].append((n_steps_done, valid_loss))
+    train_results["val_acc"].append((n_steps_done, valid_acc))
+
+    for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
 
         train_loss, train_acc = process_epoch(policy, train_loader, optimizer, device=DEVICE)
@@ -61,10 +81,15 @@ def train_gnn(collection_root, collection_name, trajectories_name, train_batch_s
         valid_loss, valid_acc = process_epoch(policy, valid_loader, None, device=DEVICE)
         print(f"Valid loss: {valid_loss:0.3f}, accuracy {valid_acc:0.3f}")
 
-        if valid_acc >= best_valid_accuracy + MIN_DELTA:
-            # New best model: save its weights
-            Path(f'{path}/trained_params/').mkdir(parents=True, exist_ok=True)
-            torch.save(policy.state_dict(), f'{path}/trained_params/GCNN_trained_params.pkl')
+        n_steps_done += n_steps_per_epoch
+
+        train_results["train_loss"].append((n_steps_done, train_loss))
+        train_results["train_acc"].append((n_steps_done, train_acc))
+        train_results["val_loss"].append((n_steps_done, valid_loss))
+        train_results["val_acc"].append((n_steps_done, valid_acc))
+
+        if valid_acc >= best_valid_accuracy + MIN_DELTA:            
+            torch.save(policy.state_dict(), f'{models_path}/{config_name}.pt')
 
             # Reinit no_improvement counter and best_valid_accuracy
             n_epochs_no_improvement = 0
@@ -73,8 +98,11 @@ def train_gnn(collection_root, collection_name, trajectories_name, train_batch_s
             n_epochs_no_improvement += 1
             if n_epochs_no_improvement >= PATIENCE:
                 print(f'Validation accuracies stopped improving. Max accuracy reached was {best_valid_accuracy}.' +
-                      f'Model weights saved at {path}/trained_params/GCNN_trained_params.pkl')
+                      f'Model weights saved at {models_path}/{config_name}.pt')
                 break
+
+    with open(f'{results_path}/{config_name}.pkl', 'wb') as f:
+        pickle.dump(train_results, f)
 
 
 def process_epoch(policy, data_loader, optimizer=None, device='cuda'):
@@ -86,7 +114,8 @@ def process_epoch(policy, data_loader, optimizer=None, device='cuda'):
 
     n_samples_processed = 0
     with torch.set_grad_enabled(optimizer is not None):
-        for batch in data_loader:
+        msg = f"{'train' if optimizer else 'val'} epoch..."
+        for batch in tqdm(data_loader, msg):
             batch = batch.to(device)
             # Compute the logits (i.e. pre-softmax activations) according to the policy on the concatenated graphs
             logits = policy(batch.constraint_features, batch.edge_index, batch.edge_attr, batch.variable_features)
@@ -131,3 +160,41 @@ def get_name_for_BC_config(config):
     name.append(f"expert-proba={config.expert_probability}")
 
     return "_".join(name)
+
+def save_work_done(working_path, saving_path):
+    if working_path == saving_path:
+        return
+
+    # Move models
+    src_path = os.path.join(working_path, 'models')
+    if os.path.exists(src_path):
+        dest_path = os.path.join(saving_path, 'models')
+        Path(dest_path).mkdir(parents=True, exist_ok=True)
+
+        for fname in os.listdir(src_path):
+            full_fname = os.path.join(src_path, fname)
+            if os.path.isfile(full_fname):
+                shutil.copyfile(full_fname, os.path.join(dest_path, fname))
+
+
+    # Move training results
+    src_path = os.path.join(working_path, 'train_results')
+    if os.path.exists(src_path):
+        dest_path = os.path.join(saving_path, 'train_results')
+        Path(dest_path).mkdir(parents=True, exist_ok=True)
+
+        for fname in os.listdir(src_path):
+            full_fname = os.path.join(src_path, fname)
+            if os.path.isfile(full_fname):
+                shutil.copyfile(full_fname, os.path.join(dest_path, fname))
+
+    # Move testing results
+    src_path = os.path.join(working_path, 'test_results')
+    if os.path.exists(src_path):
+        dest_path = os.path.join(saving_path, 'test_results')
+        Path(dest_path).mkdir(parents=True, exist_ok=True)
+
+        for fname in os.listdir(src_path):
+            full_fname = os.path.join(src_path, fname)
+            if os.path.isfile(full_fname):
+                shutil.copyfile(full_fname, os.path.join(dest_path, fname))
