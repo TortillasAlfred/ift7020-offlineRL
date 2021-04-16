@@ -9,6 +9,12 @@ def collect_all_trajectories(nb_instances,
                              base_trajectories_name,
                              expert_probability,
                              job_index):
+
+    if job_index > -1:
+        proba_index = int(job_index / 200)
+        expert_probability = [0.0, 0.25, 1.0][proba_index]
+
+        job_index = job_index % 200
     
     # Instances are created or loaded at initialization
     data_collector = DataCollector(collection_root=collection_root,
@@ -28,11 +34,20 @@ def collect_all_trajectories(nb_instances,
 def run_all_behaviour_cloning(collection_root,
                               collection_name,
                               base_trajectories_name,
-                              expert_probability):
+                              expert_probability,
+                              job_index):
 
-    print(f'Training BC for {expert_probability} expert probability dataset.')
+    if job_index > -1:
+        expert_probability = [0.0, 0.25, 1.0, "mixed"][job_index]
 
-    trajectories_name = f'{base_trajectories_name}_{expert_probability}'
+    if expert_probability == "mixed":
+        print('Training BC for mixed dataset.')
+
+        trajectories_name = f'{base_trajectories_name}_mixed'
+    else:
+        print(f'Training BC for {expert_probability} expert probability dataset.')
+
+        trajectories_name = f'{base_trajectories_name}_{expert_probability}'
 
     train_gnn(collection_root, collection_name, trajectories_name)
 
@@ -78,7 +93,8 @@ def main(config):
         run_all_behaviour_cloning(config.collection_root,
                                   config.collection_name,
                                   config.base_trajectories_name,
-                                  config.expert_probability)
+                                  config.expert_probability,
+                                  config.job_index)
 
     if config.mixed_run:
         mixed_run(config.base_trajectories_name,
@@ -110,10 +126,9 @@ if __name__ == '__main__':
     args.collection_name = f'{args.nb_instances}_instances_collection'
     args.base_trajectories_name = f'{args.nb_trajectories}_trajectories_expert'
 
-    if args.job_index > -1:
-        proba_index = int(args.job_index / 200)
-        args.expert_probability = [0.0, 0.25, 1.0][proba_index]
-
-        args.job_index = args.job_index % 200
+    print("\n\nRunning with the following config :\n")
+    for key, value in args.__dict__.items():
+        print(f"{key:<30}: {value}")
+    print("\n")
 
     main(args)
