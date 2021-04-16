@@ -27,7 +27,7 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
     plt.show()
 
 
-def train_gnn(collection_root, collection_name, trajectories_name):
+def train_gnn(collection_root, collection_name, trajectories_name, train_batch_size, test_batch_size, num_workers):
     # Train GNN
     LEARNING_RATE = 0.001
     NB_EPOCHS = 50
@@ -43,9 +43,9 @@ def train_gnn(collection_root, collection_name, trajectories_name):
     valid_files = sample_files[int(0.8 * len(sample_files)):]
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=32, shuffle=True)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, shuffle=True)
     valid_data = GraphDataset(valid_files)
-    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=128, shuffle=False)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, shuffle=False)
 
     policy = GNNPolicy().to(DEVICE)
 
@@ -124,3 +124,10 @@ def pad_tensor(input_, pad_sizes, pad_value=-1e8):
     output = torch.stack([F.pad(slice_, (0, max_pad_size - slice_.size(0)), 'constant', pad_value)
                           for slice_ in output], dim=0)
     return output
+
+def get_name_for_BC_config(config):
+    name = ["BC"]
+
+    name.append(f"expert-proba={config.expert_probability}")
+
+    return "_".join(name)

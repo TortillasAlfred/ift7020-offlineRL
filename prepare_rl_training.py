@@ -2,13 +2,13 @@ from core import DataCollector, train_gnn
 
 import argparse
 
-def collect_all_trajectories(nb_instances,
-                             nb_trajectories,
-                             collection_root,
-                             collection_name,
-                             base_trajectories_name,
-                             expert_probability,
-                             job_index):
+def collect_trajectories(nb_instances,
+                         nb_trajectories,
+                         collection_root,
+                         collection_name,
+                         base_trajectories_name,
+                         expert_probability,
+                         job_index):
 
     if job_index > -1:
         proba_index = int(job_index / 200)
@@ -31,11 +31,14 @@ def collect_all_trajectories(nb_instances,
                                          expert_probability=expert_probability,
                                          job_index=job_index)
 
-def run_all_behaviour_cloning(collection_root,
-                              collection_name,
-                              base_trajectories_name,
-                              expert_probability,
-                              job_index):
+def run_behaviour_cloning(collection_root,
+                          collection_name,
+                          base_trajectories_name,
+                          expert_probability,
+                          job_index,
+                          train_batch_size,
+                          test_batch_size,
+                          num_workers):
 
     if job_index > -1:
         expert_probability = [0.0, 0.25, 1.0, "mixed"][job_index]
@@ -49,7 +52,12 @@ def run_all_behaviour_cloning(collection_root,
 
         trajectories_name = f'{base_trajectories_name}_{expert_probability}'
 
-    train_gnn(collection_root, collection_name, trajectories_name)
+    train_gnn(collection_root, 
+              collection_name, 
+              trajectories_name,
+              train_batch_size,
+              test_batch_size,
+              num_workers)
 
 def mixed_run(base_trajectories_name,
               collection_root,
@@ -81,7 +89,7 @@ def mixed_run(base_trajectories_name,
 
 def main(config):
     if config.collect_trajectories:
-        collect_all_trajectories(config.nb_instances,
+        collect_trajectories(config.nb_instances,
                                  config.nb_trajectories,
                                  config.collection_root,
                                  config.collection_name,
@@ -90,11 +98,14 @@ def main(config):
                                  config.job_index)
 
     if config.train_bc:
-        run_all_behaviour_cloning(config.collection_root,
+        run_behaviour_cloning(config.collection_root,
                                   config.collection_name,
                                   config.base_trajectories_name,
                                   config.expert_probability,
-                                  config.job_index)
+                                  config.job_index,
+                                  config.train_batch_size,
+                                  config.test_batch_size,
+                                  config.num_workers)
 
     if config.mixed_run:
         mixed_run(config.base_trajectories_name,
@@ -114,6 +125,9 @@ if __name__ == '__main__':
     parser.add_argument('--collection_root', type=str, default='.')
     parser.add_argument('--expert_probability', type=float, default=0.0)
     parser.add_argument('--job_index', type=int, default=-1)
+    parser.add_argument('--train_batch_size', type=int, default=32)
+    parser.add_argument('--test_batch_size', type=int, default=128)
+    parser.add_argument('--num_workers', type=int, default=0)
 
     args = parser.parse_args()
 
