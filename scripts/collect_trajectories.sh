@@ -12,4 +12,4 @@
 source /home/magod/venvs/opti_combi/bin/activate
 export PYTHONPATH=/home/magod/git/ift7020-offlineRL/:$PYTHONPATH
 
-python prepare_rl_training.py --collect_trajectories 1 --collection_root /scratch/magod/opti_combi/data --job_index $SLURM_ARRAY_TASK_ID
+python -u prepare_rl_training.py --collect_trajectories 1 --collection_root /scratch/magod/opti_combi/data --job_index $SLURM_ARRAY_TASK_ID
