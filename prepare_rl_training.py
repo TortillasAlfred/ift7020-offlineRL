@@ -43,9 +43,6 @@ def run_behaviour_cloning(collection_name,
                           num_workers,
                           config_name):
 
-    if job_index > -1:
-        expert_probability = [0.0, 0.25, 1.0, "mixed"][job_index]
-
     if expert_probability == "mixed":
         print('Training BC for mixed dataset.')
 
@@ -144,6 +141,9 @@ if __name__ == '__main__':
     # Default vals
     args.collection_name = f'{args.nb_instances}_instances_collection'
     args.base_trajectories_name = f'{args.nb_trajectories}_trajectories_expert'
+
+    if args.train_bc and args.job_index > -1:
+        args.expert_probability = [0.0, 0.25, 1.0, "mixed"][args.job_index]
 
     print("\n\nRunning with the following config :\n")
     for key, value in args.__dict__.items():
