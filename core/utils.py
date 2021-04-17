@@ -35,8 +35,8 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
 def train_gnn(working_path, config_name, collection_name, trajectories_name, train_batch_size, test_batch_size, num_workers):
     # Train GNN
     LEARNING_RATE = 0.001
-    NB_EPOCHS = 50
-    PATIENCE = 10
+    NB_EPOCHS = 15
+    PATIENCE = 3
     MIN_DELTA = 0.01
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -53,9 +53,9 @@ def train_gnn(working_path, config_name, collection_name, trajectories_name, tra
     valid_files = sample_files[int(0.8 * len(sample_files)):]
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, shuffle=True)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
     valid_data = GraphDataset(valid_files)
-    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, shuffle=False)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
 
     policy = GNNPolicy().to(DEVICE)
 
