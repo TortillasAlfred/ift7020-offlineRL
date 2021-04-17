@@ -1,7 +1,8 @@
 #!/bin/bash
 
 #SBATCH --account=rrg-corbeilj-ac                                                   # Account with resources
-#SBATCH --cpus-per-task=4                                                           # Number of CPUs
+#SBATCH --gres=gpu:t4:1                                                             # Number of GPUs
+#SBATCH --cpus-per-task=6                                                           # Number of CPUs
 #SBATCH --mem=20G                                                                   # memory (per node)
 #SBATCH --time=0-12:00                                                              # time (DD-HH:MM)
 #SBATCH --mail-user=mathieu.godbout.3@ulaval.ca                                     # Where to email
@@ -15,4 +16,7 @@ export PYTHONPATH=/home/magod/git/ift7020-offlineRL/:$PYTHONPATH
 cp /scratch/magod/opti_combi/datasets.tar.gz $SLURM_TMPDIR
 tar -xzf $SLURM_TMPDIR/datasets.tar.gz -C $SLURM_TMPDIR/
 
-python -u prepare_rl_training.py --train_bc 1 --working_path $SLURM_TMPDIR --saving_path /scratch/magod/opti_combi/results --job_index $SLURM_ARRAY_TASK_ID
+module load cuda
+export LD_LIBRARY_PATH=/cvmfs/soft.computecanada.ca/easybuild/software/2020/Core/cudacore/11.0.2/lib64:$LD_LIBRARY_PATH
+
+python prepare_rl_training.py --train_bc 1 --working_path $SLURM_TMPDIR --saving_path /scratch/magod/opti_combi/results --job_index $SLURM_ARRAY_TASK_ID
