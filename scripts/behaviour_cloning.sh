@@ -16,6 +16,5 @@ cp /scratch/magod/opti_combi/datasets.tar.gz $SLURM_TMPDIR
 tar -xzf $SLURM_TMPDIR/datasets.tar.gz -C $SLURM_TMPDIR/
 
 module load cuda
-export LD_LIBRARY_PATH=/cvmfs/soft.computecanada.ca/easybuild/software/2020/Core/cudacore/11.0.2/lib64:$LD_LIBRARY_PATH
 
 python -u prepare_rl_training.py --train_bc 1 --working_path $SLURM_TMPDIR --saving_path /scratch/magod/opti_combi/results --job_index $SLURM_ARRAY_TASK_ID
