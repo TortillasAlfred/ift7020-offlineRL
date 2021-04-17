@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --account=rrg-corbeilj-ac                                                   # Account with resources
-#SBATCH --cpus-per-task=6                                                           # Number of CPUs
+#SBATCH --cpus-per-task=4                                                           # Number of CPUs
 #SBATCH --mem=20G                                                                   # memory (per node)
 #SBATCH --time=0-12:00                                                              # time (DD-HH:MM)
 #SBATCH --mail-user=mathieu.godbout.3@ulaval.ca                                     # Where to email

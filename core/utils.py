@@ -53,9 +53,9 @@ def train_gnn(working_path, config_name, collection_name, trajectories_name, tra
     valid_files = sample_files[int(0.8 * len(sample_files)):]
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, shuffle=True)
     valid_data = GraphDataset(valid_files)
-    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, shuffle=False)
 
     policy = GNNPolicy().to(DEVICE)
 
