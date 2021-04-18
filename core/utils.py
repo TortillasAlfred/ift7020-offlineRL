@@ -161,6 +161,33 @@ def get_name_for_BC_config(config):
 
     return "_".join(name)
 
+def update_CQL_config_for_job_index(config):
+    if config.job_index == -1:
+        return "", config
+    else:
+        # Update config
+        index = config.job_index
+
+        config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 12]
+        config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 12) // 3]
+        config.seed = index % 3
+
+        # Get name
+        config_name = get_name_for_CQL_config(config)
+
+        return config_name, config
+
+def get_name_for_CQL_config(config):
+    name = ["CQL"]
+
+    name.append(f"expert-proba={config.expert_probability}")
+    name.append(f"reward={config.reward}")
+    name.append(f"alpha={config.alpha}")
+    name.append(f"{'with' if config.use_bc else 'without'}-BC")
+    name.append(f"seed={config.seed}")
+
+    return "_".join(name)
+
 def save_work_done(working_path, saving_path):
     if working_path == saving_path:
         return
