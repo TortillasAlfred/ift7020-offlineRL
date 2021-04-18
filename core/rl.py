@@ -48,7 +48,7 @@ class CQL:
             r = batch.rewards.view(batch_size, -1)[:, self.reward_index] * self.reward_sign 
             targ_q_t = r + self.gamma * q_tp1 * (1 - batch.terminal)
 
-        dqn_loss = ((targ_q_t - q_t) ** 2).mean()
+        dqn_loss = ((targ_q_t - q_t) ** 2).sum()
 
         # CQL Loss
         lse = torch.logsumexp(full_q_t, dim=1, keepdim=True)
@@ -61,9 +61,9 @@ class CQL:
         else:
             data_values = q_t
 
-        cql_loss = (lse - data_values).mean()
+        cql_loss = (lse - data_values).sum()
 
-        return dqn_loss, cql_loss, (dqn_loss + self.alpha * cql_loss).mean()
+        return dqn_loss, cql_loss, dqn_loss + self.alpha * cql_loss
 
     def _get_network_pred(self, network, constraint_features, edge_index, edge_attr, variable_features, candidates, nb_candidates):
         preds = network(constraint_features, edge_index, edge_attr, variable_features)
@@ -115,7 +115,7 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
             dqn_loss, cql_loss, loss = learner.get_loss(batch)
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.mean().backward()
             optimizer.step()
 
             learner.update()
