@@ -170,7 +170,7 @@ def update_CQL_config_for_job_index(config):
         index = config.job_index
 
         config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 12]
-        config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 12) // 3]
+        config.alpha = [0.0, 1.0, 10.0, 100.0][(index % 12) // 3]
         config.seed = index % 3
 
         # Get name
