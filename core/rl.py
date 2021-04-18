@@ -185,7 +185,7 @@ def train_gnn_rl(config, config_name):
     set_seed(config.seed)
     
     LEARNING_RATE = 3e-4
-    NB_EPOCHS = 150
+    NB_EPOCHS = 70
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     trajectories_path = f'{config.working_path}/data/collections/{config.collection_name}/{config.trajectories_name}/'
@@ -228,6 +228,7 @@ def train_gnn_rl(config, config_name):
     train_results = defaultdict(list)
 
     solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
+    print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}')
 
     train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
     train_results["val_solve_time"].append((n_steps_done, solve_time))
@@ -239,6 +240,7 @@ def train_gnn_rl(config, config_name):
         print(f"Train loss: {train_loss:0.3f}, DQN loss : {dqn_loss:0.3f}, CQL loss : {cql_loss:0.3f}")
 
         solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
+        print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}')
 
         n_steps_done += n_steps_per_epoch
 
