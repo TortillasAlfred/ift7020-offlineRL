@@ -11,6 +11,7 @@ import os
 from collections import defaultdict
 from tqdm import tqdm
 import pickle
+import random
 
 
 def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_active, collect_trajectory_times):
@@ -225,3 +226,8 @@ def save_work_done(working_path, saving_path):
             full_fname = os.path.join(src_path, fname)
             if os.path.isfile(full_fname):
                 shutil.copyfile(full_fname, os.path.join(dest_path, fname))
+
+def set_seed(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)

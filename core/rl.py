@@ -1,5 +1,5 @@
 from core import GraphDataset, GNNPolicy
-from core.utils import pad_tensor, save_work_done, update_CQL_config_for_job_index
+from core.utils import pad_tensor, save_work_done, update_CQL_config_for_job_index, set_seed
 
 import copy
 import torch
@@ -13,8 +13,7 @@ import pickle
 import argparse
 
 class CQL:
-    # TODO: Logging - Training (and val) loop
-    def __init__(self, q_network, gamma=0.99, reward="nb_nodes", alpha=1.0, bc_network=None, target_update_interval=10):
+    def __init__(self, q_network, gamma=0.99, reward="nb_nodes", alpha=1.0, bc_network=None, target_update_interval=1000):
         self.q_network = q_network
         self.target_q_network = copy.deepcopy(q_network)
         self.reward = reward
@@ -107,7 +106,7 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
 
     n_samples_processed = 0
     with torch.set_grad_enabled(True):
-        for batch in tqdm(data_loader):
+        for batch in tqdm(data_loader, "train epoch..."):
             batch = batch.to(device)
             
             dqn_loss, cql_loss, loss = learner.get_loss(batch)
@@ -131,7 +130,8 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
     return mean_dqn_loss, mean_cql_loss, mean_loss
 
 def train_gnn_rl(config):
-    # Train GNN
+    set_seed(config.seed)
+    
     LEARNING_RATE = 3e-4
     NB_EPOCHS = 150
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -156,13 +156,14 @@ def train_gnn_rl(config):
 
     q_network = GNNPolicy()
 
-    # if load_bc_network:
-    #     bc_network = GNNPolicy()
-    #     bc_network.load_state_dict(torch.load(f'{path}/trained_params/GCNN_trained_params.pkl'))
-    # else:
-    #     bc_network = None
+    bc_network = None
+    if config.use_bc:
+        # bc_network = GNNPolicy()
+        # bc_network.load_state_dict(torch.load(f'{path}/trained_params/GCNN_trained_params.pkl'))
+        raise NotImplementedError("Usage of behaviour cloning network not yet implemented for CQL.")
+        
 
-    cql = CQL(q_network)
+    cql = CQL(q_network, bc_network=bc_network)
     cql.to(DEVICE)
 
     optimizer = torch.optim.Adam(q_network.parameters(), lr=LEARNING_RATE)
@@ -172,7 +173,7 @@ def train_gnn_rl(config):
     n_steps_done = 0
     train_results = defaultdict(list)
 
-    for epoch in range(NB_EPOCHS):
+    for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
 
         dqn_loss, cql_loss, train_loss = do_epoch(cql, train_loader, optimizer, device=DEVICE)
