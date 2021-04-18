@@ -184,7 +184,7 @@ def test_model_on_instances(model, instances, device, n_runs=1):
 def train_gnn_rl(config, config_name):
     set_seed(config.seed)
     
-    LEARNING_RATE = 3e-4
+    LEARNING_RATE = 1e-5
     NB_EPOCHS = 70
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
