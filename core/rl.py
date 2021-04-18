@@ -11,6 +11,9 @@ from pathlib import Path
 from collections import defaultdict
 import pickle
 import argparse
+import os
+import numpy as np
+import ecole
 
 class CQL:
     def __init__(self, q_network, gamma=0.99, reward="nb_nodes", alpha=1.0, bc_network=None, target_update_interval=1000):
@@ -129,7 +132,56 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
 
     return mean_dqn_loss, mean_cql_loss, mean_loss
 
-def train_gnn_rl(config):
+def load_valid_instances(config):
+    valid_instances_path = f'{config.working_path}/data/collections/{config.collection_name}/validation_instances/'
+    
+    Path(f'{valid_instances_path}').mkdir(parents=True, exist_ok=True)
+    loaded_instances = []
+    for _, _, files in os.walk(valid_instances_path):
+        for file in files:
+            instance = ecole.scip.Model.from_file(valid_instances_path+file)
+            loaded_instances.append(instance)
+
+    return loaded_instances
+
+def test_model_on_instances(model, instances, device, n_runs=1):
+    mean_solve_time = 0.0
+    mean_nb_nodes = 0.0
+    nb_runs_processed = 0
+
+    # We can pass custom SCIP parameters easily
+    scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
+
+    env = ecole.environment.Branching(observation_function=ecole.observation.NodeBipartite(),
+                                        scip_params=scip_parameters,
+                                        information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
+                                                              "time": ecole.reward.SolvingTime().cumsum()})
+
+    for instance in tqdm(instances, "Processing val instances..."):
+        for run in range(n_runs):
+            env.seed(run)
+            observation, action_set, _, done, info = env.reset(instance)
+
+            while not done:
+                with torch.no_grad():
+                    observation = (torch.from_numpy(observation.row_features.astype(np.float32)).to(device),
+                           torch.from_numpy(observation.edge_features.indices.astype(np.int64)).to(device), 
+                           torch.from_numpy(observation.edge_features.values.astype(np.float32)).view(-1, 1).to(device),
+                           torch.from_numpy(observation.column_features.astype(np.float32)).to(device))
+                    logits = model(*observation)
+                    action = action_set[logits[action_set.astype(np.int64)].argmax()]
+                    observation, action_set, _, done, info = env.step(action)
+
+            mean_solve_time += info['time']
+            mean_nb_nodes += info['nb_nodes']
+            nb_runs_processed += 1
+
+    mean_solve_time /= nb_runs_processed
+    mean_nb_nodes /= nb_runs_processed
+
+    return mean_solve_time, mean_nb_nodes
+
+def train_gnn_rl(config, config_name):
     set_seed(config.seed)
     
     LEARNING_RATE = 3e-4
@@ -154,6 +206,8 @@ def train_gnn_rl(config):
                                                    pin_memory=True, 
                                                    shuffle=True)
 
+    valid_instances = load_valid_instances(config)
+
     q_network = GNNPolicy()
 
     bc_network = None
@@ -173,19 +227,32 @@ def train_gnn_rl(config):
     n_steps_done = 0
     train_results = defaultdict(list)
 
+    solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
+
+    train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
+    train_results["val_solve_time"].append((n_steps_done, solve_time))
+
     for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
 
         dqn_loss, cql_loss, train_loss = do_epoch(cql, train_loader, optimizer, device=DEVICE)
         print(f"Train loss: {train_loss:0.3f}, DQN loss : {dqn_loss:0.3f}, CQL loss : {cql_loss:0.3f}")
 
-        # TODO: Whole validation loop
+        solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
 
         n_steps_done += n_steps_per_epoch
 
         train_results["train_loss"].append((n_steps_done, train_loss))
         train_results["train_dqn_loss"].append((n_steps_done, dqn_loss))
         train_results["train_cql_loss"].append((n_steps_done, cql_loss))
+
+        train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
+        train_results["val_solve_time"].append((n_steps_done, solve_time))
+
+        if prev_min_val_nodes > nb_nodes:
+            torch.save(cql.q_network.state_dict(), f'{models_path}/{config_name}.pt')
+
+            prev_min_val_nodes = nb_nodes
 
         with open(f'{results_path}/{config_name}.pkl', 'wb') as f:
             pickle.dump(train_results, f)
@@ -225,4 +292,4 @@ if __name__ == '__main__':
         print(f"{key:<30}: {value}")
     print("\n")
 
-    train_gnn_rl(args)
+    train_gnn_rl(args, config_name)
