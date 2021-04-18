@@ -16,7 +16,7 @@ import numpy as np
 import ecole
 
 class CQL:
-    def __init__(self, q_network, gamma=0.99, reward="nb_nodes", alpha=1.0, bc_network=None, target_update_interval=1000):
+    def __init__(self, q_network, gamma=0.95, reward="lp-iterations", alpha=1.0, bc_network=None, target_update_interval=1000):
         self.q_network = q_network
         self.target_q_network = copy.deepcopy(q_network)
         self.reward = reward
@@ -36,22 +36,22 @@ class CQL:
         # DQN Loss
         a_t = F.one_hot(batch.candidate_choice.view(-1), num_classes=batch.nb_candidates.max())
         full_q_t = self._get_network_pred(self.q_network, *current_state)
-        q_t = (full_q_t * a_t.float()).sum(dim=1, keepdim=True)
+        q_t = (full_q_t * a_t.float()).sum(dim=1, keepdim=False)
 
         with torch.no_grad():
             q_tp1 = self._get_network_pred(self.q_network, *next_state)
             next_action = q_tp1.argmax(dim=1)
             next_action = F.one_hot(next_action.view(-1), num_classes=batch.next_nb_candidates.max())
             targ_q_tp1 = self._get_network_pred(self.target_q_network, *next_state)
-            q_tp1 = (targ_q_tp1 * next_action.float()).sum(dim=1, keepdim=True)
+            q_tp1 = (targ_q_tp1 * next_action.float()).sum(dim=1, keepdim=False)
 
-            r = batch.rewards.view(batch_size, -1)[:, self.reward_index] * self.reward_sign 
+            r = batch.rewards.view(batch_size, -1)[:, self.reward_index] * self.reward_sign
             targ_q_t = r + self.gamma * q_tp1 * (1 - batch.terminal)
 
-        dqn_loss = ((targ_q_t - q_t) ** 2).sum()
+        dqn_loss = ((targ_q_t - q_t) ** 2).mean()
 
         # CQL Loss
-        lse = torch.logsumexp(full_q_t, dim=1, keepdim=True)
+        lse = torch.logsumexp(full_q_t, dim=1, keepdim=False)
 
         if self.bc_network:
             with torch.no_grad():
@@ -61,18 +61,19 @@ class CQL:
         else:
             data_values = q_t
 
-        cql_loss = (lse - data_values).sum()
+        cql_loss = (lse - data_values).mean()
 
         return dqn_loss, cql_loss, dqn_loss + self.alpha * cql_loss
 
     def _get_network_pred(self, network, constraint_features, edge_index, edge_attr, variable_features, candidates, nb_candidates):
         preds = network(constraint_features, edge_index, edge_attr, variable_features)
+        preds = -F.relu(preds)
         return pad_tensor(preds[candidates], nb_candidates)
 
     def _get_reward_idx_sign(self, reward):
-        if reward == "nb_nodes":
+        if reward == "nb-nodes":
             return 0, -1
-        elif reward == "lp_iterations":
+        elif reward == "lp-iterations":
             return 1, -1
         elif reward == "time":
             return 2, -1
@@ -115,7 +116,7 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
             dqn_loss, cql_loss, loss = learner.get_loss(batch)
 
             optimizer.zero_grad()
-            loss.mean().backward()
+            loss.backward()
             optimizer.step()
 
             learner.update()
@@ -147,6 +148,7 @@ def load_valid_instances(config):
 def test_model_on_instances(model, instances, device, n_runs=1):
     mean_solve_time = 0.0
     mean_nb_nodes = 0.0
+    mean_lp_iters = 0.0
     nb_runs_processed = 0
 
     # We can pass custom SCIP parameters easily
@@ -155,7 +157,8 @@ def test_model_on_instances(model, instances, device, n_runs=1):
     env = ecole.environment.Branching(observation_function=ecole.observation.NodeBipartite(),
                                         scip_params=scip_parameters,
                                         information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
-                                                              "time": ecole.reward.SolvingTime().cumsum()})
+                                                              "time": ecole.reward.SolvingTime().cumsum(),
+                                                              "lp_iters": ecole.reward.LpIterations().cumsum()})
 
     for instance in tqdm(instances, "Processing val instances..."):
         for run in range(n_runs):
@@ -169,22 +172,25 @@ def test_model_on_instances(model, instances, device, n_runs=1):
                            torch.from_numpy(observation.edge_features.values.astype(np.float32)).view(-1, 1).to(device),
                            torch.from_numpy(observation.column_features.astype(np.float32)).to(device))
                     logits = model(*observation)
+                    logits = -F.relu(logits)
                     action = action_set[logits[action_set.astype(np.int64)].argmax()]
                     observation, action_set, _, done, info = env.step(action)
 
             mean_solve_time += info['time']
             mean_nb_nodes += info['nb_nodes']
+            mean_lp_iters += info['lp_iters']
             nb_runs_processed += 1
 
     mean_solve_time /= nb_runs_processed
     mean_nb_nodes /= nb_runs_processed
+    mean_lp_iters /= nb_runs_processed
 
-    return mean_solve_time, mean_nb_nodes
+    return mean_solve_time, mean_nb_nodes, mean_lp_iters
 
 def train_gnn_rl(config, config_name):
     set_seed(config.seed)
     
-    LEARNING_RATE = 1e-5
+    LEARNING_RATE = 3e-4
     NB_EPOCHS = 70
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -217,7 +223,7 @@ def train_gnn_rl(config, config_name):
         raise NotImplementedError("Usage of behaviour cloning network not yet implemented for CQL.")
         
 
-    cql = CQL(q_network, bc_network=bc_network)
+    cql = CQL(q_network, bc_network=bc_network, reward=config.reward)
     cql.to(DEVICE)
 
     optimizer = torch.optim.Adam(q_network.parameters(), lr=LEARNING_RATE)
@@ -227,11 +233,12 @@ def train_gnn_rl(config, config_name):
     n_steps_done = 0
     train_results = defaultdict(list)
 
-    solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
-    print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}')
+    solve_time, nb_nodes, lp_iters = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
+    print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}, Val lp iters : {lp_iters:0.3f}')
 
     train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
     train_results["val_solve_time"].append((n_steps_done, solve_time))
+    train_results["val_lp_iters"].append((n_steps_done, lp_iters))
 
     for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
@@ -239,8 +246,8 @@ def train_gnn_rl(config, config_name):
         dqn_loss, cql_loss, train_loss = do_epoch(cql, train_loader, optimizer, device=DEVICE)
         print(f"Train loss: {train_loss:0.3f}, DQN loss : {dqn_loss:0.3f}, CQL loss : {cql_loss:0.3f}")
 
-        solve_time, nb_nodes = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
-        print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}')
+        solve_time, nb_nodes, lp_iters = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
+        print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}, Val lp iters : {lp_iters:0.3f}')
 
         n_steps_done += n_steps_per_epoch
 
@@ -250,6 +257,7 @@ def train_gnn_rl(config, config_name):
 
         train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
         train_results["val_solve_time"].append((n_steps_done, solve_time))
+        train_results["val_lp_iters"].append((n_steps_done, lp_iters))
 
         if prev_min_val_nodes > nb_nodes:
             torch.save(cql.q_network.state_dict(), f'{models_path}/{config_name}.pt')
@@ -274,7 +282,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--alpha', type=float, default=1.0)
-    parser.add_argument('--reward', type=str, default='nb_nodes')
+    parser.add_argument('--reward', type=str, default='lp-iterations')
     parser.add_argument('--use_bc', type=int, default=0) # Fake boolean
 
     args = parser.parse_args()
