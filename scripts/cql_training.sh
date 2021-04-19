@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --account=def-adurand                                                       # Account with resources
+#SBATCH --account=def-corbeilj                                                      # Account with resources
 #SBATCH --gres=gpu:t4:1                                                             # Number of GPUs
 #SBATCH --cpus-per-task=4                                                           # Number of CPUs
 #SBATCH --mem=20G                                                                   # memory (per node)
-#SBATCH --time=2-00:00                                                              # time (DD-HH:MM)
+#SBATCH --time=1-00:00                                                              # time (DD-HH:MM)
 #SBATCH --mail-user=mathieu.godbout.3@ulaval.ca                                     # Where to email
 #SBATCH --mail-type=FAIL                                                            # Email when a job fails
 #SBATCH --output=/project/def-adurand/magod/opti_combi/slurm_outputs/%A_%a.out      # Default write output on scratch, to jobID_arrayID.out file

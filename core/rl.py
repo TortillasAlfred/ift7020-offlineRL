@@ -191,7 +191,7 @@ def train_gnn_rl(config, config_name):
     set_seed(config.seed)
     
     LEARNING_RATE = 3e-4
-    NB_EPOCHS = 70
+    NB_EPOCHS = 40
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     trajectories_path = f'{config.working_path}/data/collections/{config.collection_name}/{config.trajectories_name}/'
@@ -236,9 +236,9 @@ def train_gnn_rl(config, config_name):
     solve_time, nb_nodes, lp_iters = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
     print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}, Val lp iters : {lp_iters:0.3f}')
 
-    train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
-    train_results["val_solve_time"].append((n_steps_done, solve_time))
-    train_results["val_lp_iters"].append((n_steps_done, lp_iters))
+    train_results["val_nb_nodes"].append((n_steps_done, 0, nb_nodes))
+    train_results["val_solve_time"].append((n_steps_done, 0, solve_time))
+    train_results["val_lp_iters"].append((n_steps_done, 0, lp_iters))
 
     for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
@@ -251,13 +251,13 @@ def train_gnn_rl(config, config_name):
 
         n_steps_done += n_steps_per_epoch
 
-        train_results["train_loss"].append((n_steps_done, train_loss))
-        train_results["train_dqn_loss"].append((n_steps_done, dqn_loss))
-        train_results["train_cql_loss"].append((n_steps_done, cql_loss))
+        train_results["train_loss"].append((n_steps_done, epoch + 1, train_loss))
+        train_results["train_dqn_loss"].append((n_steps_done, epoch + 1, dqn_loss))
+        train_results["train_cql_loss"].append((n_steps_done, epoch + 1, cql_loss))
 
-        train_results["val_nb_nodes"].append((n_steps_done, nb_nodes))
-        train_results["val_solve_time"].append((n_steps_done, solve_time))
-        train_results["val_lp_iters"].append((n_steps_done, lp_iters))
+        train_results["val_nb_nodes"].append((n_steps_done, epoch + 1, nb_nodes))
+        train_results["val_solve_time"].append((n_steps_done, epoch + 1, solve_time))
+        train_results["val_lp_iters"].append((n_steps_done, epoch + 1, lp_iters))
 
         if prev_min_val_nodes > nb_nodes:
             torch.save(cql.q_network.state_dict(), f'{models_path}/{config_name}.pt')
