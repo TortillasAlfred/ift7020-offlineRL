@@ -169,9 +169,9 @@ def update_CQL_config_for_job_index(config):
         # Update config
         index = config.job_index
 
-        config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 12]
-        config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 12) // 3]
-        config.seed = index % 3
+        config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 8]
+        config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 8) // 2]
+        config.seed = index % 2 + 1
 
         # Get name
         config_name = get_name_for_CQL_config(config)

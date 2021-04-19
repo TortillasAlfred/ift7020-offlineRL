@@ -8,7 +8,7 @@
 #SBATCH --mail-user=mathieu.godbout.3@ulaval.ca                                     # Where to email
 #SBATCH --mail-type=FAIL                                                            # Email when a job fails
 #SBATCH --output=/project/def-adurand/magod/opti_combi/slurm_outputs/%A_%a.out      # Default write output on scratch, to jobID_arrayID.out file
-#SBATCH --array=0-47                                                                # Launch 48 jobs
+#SBATCH --array=0-35                                                                # Launch 36 jobs
 
 source /home/magod/venvs/last_try/bin/activate
 export PYTHONPATH=/home/magod/git/ift7020-offlineRL/:$PYTHONPATH
