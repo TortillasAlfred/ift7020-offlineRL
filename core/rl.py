@@ -188,7 +188,7 @@ def test_model_on_instances(model, instances, device, n_runs=1):
     return mean_solve_time, mean_nb_nodes, mean_lp_iters
 
 def train_gnn_rl(config, config_name):
-    # set_seed(config.seed)
+    set_seed(0)
     
     LEARNING_RATE = 3e-4
     NB_EPOCHS = 40
