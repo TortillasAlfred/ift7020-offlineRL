@@ -223,7 +223,7 @@ def train_gnn_rl(config, config_name):
         raise NotImplementedError("Usage of behaviour cloning network not yet implemented for CQL.")
         
 
-    cql = CQL(q_network, bc_network=bc_network, reward=config.reward)
+    cql = CQL(q_network, bc_network=bc_network, reward=config.reward, alpha=config.alpha)
     cql.to(DEVICE)
 
     optimizer = torch.optim.Adam(q_network.parameters(), lr=LEARNING_RATE)
