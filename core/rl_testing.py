@@ -28,10 +28,9 @@ def load_test_instances(src_path):
     return loaded_instances
 
 def test_scip_on_instances(instances, n_runs=5):
-    mean_solve_time = 0.0
-    mean_nb_nodes = 0.0
-    mean_lp_iters = 0.0
-    nb_runs_processed = 0
+    solve_times = []
+    nb_nodes = []
+    lp_iters = []
 
     # We can pass custom SCIP parameters easily
     scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
@@ -48,29 +47,35 @@ def test_scip_on_instances(instances, n_runs=5):
             env.reset(instance)
             _, _, _, _, info = env.step({})
 
-            mean_solve_time += info['time']
-            mean_nb_nodes += info['nb_nodes']
-            mean_lp_iters += info['lp_iters']
+            solve_times.append(info['time'])
+            nb_nodes.append(info['nb_nodes'])
+            lp_iters.append(info['lp_iters'])
 
-            nb_runs_processed += 1
 
-    mean_solve_time /= nb_runs_processed
-    mean_nb_nodes /= nb_runs_processed
-    mean_lp_iters /= nb_runs_processed
+    mean_solve_time = np.mean(solve_times)
+    mean_nb_nodes = np.mean(nb_nodes)
+    mean_lp_iters = np.mean(lp_iters)
+
+    std_solve_time = np.std(solve_times)
+    std_nb_nodes = np.std(nb_nodes)
+    std_lp_iters = np.std(lp_iters)
 
     results = {}
 
     results["mean_solve_time"] = mean_solve_time
     results["mean_nb_nodes"] = mean_nb_nodes
     results["mean_lp_iters"] = mean_lp_iters
+
+    results["std_solve_time"] = std_solve_time
+    results["std_nb_nodes"] = std_nb_nodes
+    results["std_lp_iters"] = std_lp_iters
         
     return results    
 
 def test_fsb_on_instances(instances, n_runs=5):
-    mean_solve_time = 0.0
-    mean_nb_nodes = 0.0
-    mean_lp_iters = 0.0
-    nb_runs_processed = 0
+    solve_times = []
+    nb_nodes = []
+    lp_iters = []
 
     # We can pass custom SCIP parameters easily
     scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
@@ -93,21 +98,27 @@ def test_fsb_on_instances(instances, n_runs=5):
 
                 full_observation, action_set, _, done, info = env.step(action)
 
-            mean_solve_time += info['time']
-            mean_nb_nodes += info['nb_nodes']
-            mean_lp_iters += info['lp_iters']
+            solve_times.append(info['time'])
+            nb_nodes.append(info['nb_nodes'])
+            lp_iters.append(info['lp_iters'])
 
-            nb_runs_processed += 1
+    mean_solve_time = np.mean(solve_times)
+    mean_nb_nodes = np.mean(nb_nodes)
+    mean_lp_iters = np.mean(lp_iters)
 
-    mean_solve_time /= nb_runs_processed
-    mean_nb_nodes /= nb_runs_processed
-    mean_lp_iters /= nb_runs_processed
+    std_solve_time = np.std(solve_times)
+    std_nb_nodes = np.std(nb_nodes)
+    std_lp_iters = np.std(lp_iters)
 
     results = {}
 
     results["mean_solve_time"] = mean_solve_time
     results["mean_nb_nodes"] = mean_nb_nodes
     results["mean_lp_iters"] = mean_lp_iters
+
+    results["std_solve_time"] = std_solve_time
+    results["std_nb_nodes"] = std_nb_nodes
+    results["std_lp_iters"] = std_lp_iters
         
     return results  
 
@@ -289,7 +300,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--src_path', type=str, default='./test_instances') # This is where we the 'easy' and 'med' folder are located 
     parser.add_argument('--saving_path', type=str, default='.') # This is where we will persistently save the files
-    parser.add_argument('--job_index', type=int, default=0)
+    parser.add_argument('--job_index', type=int, default=49)
     
     args = parser.parse_args() 
     
