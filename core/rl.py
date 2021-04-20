@@ -151,6 +151,8 @@ def test_model_on_instances(model, instances, device, n_runs=1):
     mean_lp_iters = 0.0
     nb_runs_processed = 0
 
+    model = model.to(device)
+
     # We can pass custom SCIP parameters easily
     scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
