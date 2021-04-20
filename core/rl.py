@@ -221,26 +221,38 @@ def train_gnn_rl(config, config_name):
         # bc_network = GNNPolicy()
         # bc_network.load_state_dict(torch.load(f'{path}/trained_params/GCNN_trained_params.pkl'))
         raise NotImplementedError("Usage of behaviour cloning network not yet implemented for CQL.")
-        
+            
+    n_steps_per_epoch = len(train_loader)
+    n_steps_done = 0
+    epochs_done = 0
+
+    if os.path.isfile(f'{results_path}/{config_name}.pkl'):
+        with open(f'{results_path}/{config_name}.pkl', 'rb') as f:
+            train_results = pickle.load(f)
+
+        prev_min_val_nodes = min([_[-1] for _ in train_results["val_nb_nodes"]])
+
+        q_network.load_state_dict(torch.load(f'{models_path}/{config_name}.pt'))
+
+        n_steps_done = train_results["val_nb_nodes"][-1][0]
+        epochs_done = train_results["val_nb_nodes"][-1][1]
+    else:
+        prev_min_val_nodes = 1e10 # ~ inf
+        train_results = defaultdict(list)
+
+        solve_time, nb_nodes, lp_iters = test_model_on_instances(q_network, valid_instances, device=DEVICE)
+        print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}, Val lp iters : {lp_iters:0.3f}')
+
+        train_results["val_nb_nodes"].append((n_steps_done, 0, nb_nodes))
+        train_results["val_solve_time"].append((n_steps_done, 0, solve_time))
+        train_results["val_lp_iters"].append((n_steps_done, 0, lp_iters))        
 
     cql = CQL(q_network, bc_network=bc_network, reward=config.reward, alpha=config.alpha)
     cql.to(DEVICE)
 
     optimizer = torch.optim.Adam(q_network.parameters(), lr=LEARNING_RATE)
 
-    prev_min_val_nodes = 1e10 # ~ inf
-    n_steps_per_epoch = len(train_loader)
-    n_steps_done = 0
-    train_results = defaultdict(list)
-
-    solve_time, nb_nodes, lp_iters = test_model_on_instances(cql.q_network, valid_instances, device=DEVICE)
-    print(f'Val solve time : {solve_time:0.3f}, Val nb nodes : {nb_nodes:0.3f}, Val lp iters : {lp_iters:0.3f}')
-
-    train_results["val_nb_nodes"].append((n_steps_done, 0, nb_nodes))
-    train_results["val_solve_time"].append((n_steps_done, 0, solve_time))
-    train_results["val_lp_iters"].append((n_steps_done, 0, lp_iters))
-
-    for epoch in tqdm(list(range(NB_EPOCHS)), "Processing epochs..."):
+    for epoch in tqdm(list(range(epochs_done, NB_EPOCHS)), "Processing epochs..."):
         print(f"Epoch {epoch + 1}")
 
         dqn_loss, cql_loss, train_loss = do_epoch(cql, train_loader, optimizer, device=DEVICE)

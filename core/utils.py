@@ -162,45 +162,16 @@ def get_name_for_BC_config(config):
 
     return "_".join(name)
 
-# def update_CQL_config_for_job_index(config):
-#     if config.job_index == -1:
-#         return "", config
-#     else:
-#         # Update config
-#         index = config.job_index
-
-#         config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 8]
-#         config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 8) // 2]
-#         config.seed = index % 2 + 1
-
-#         # Get name
-#         config_name = get_name_for_CQL_config(config)
-
-#         return config_name, config
-
 def update_CQL_config_for_job_index(config):
     if config.job_index == -1:
         return "", config
     else:
-        # HACK: for failed runs
-        FAILED_RUNS = [
-            (0.0,10.0,1),
-            (1.0,0.1,1),
-            (0.0,1.0,2),
-            (1.0,10.0,1),
-            ("mixed",1.0,2),
-            (1.0,0.0,1),
-            (0.0,0.0,2),
-            ("mixed",1.0,1),
-            (1.0,1.0,1),
-            (0.25,0.1,2),
-            ("mixed",0.0,0),
-            ("mixed",0.1,0),
-            ("mixed",1.0,0),
-            ("mixed",10.0,0),
-        ]
+        # Update config
+        index = config.job_index
 
-        config.expert_probability, config.alpha, config.seed = FAILED_RUNS[config.job_index]
+        config.expert_probability = [0.0, 0.25, 1.0, "mixed"][index // 12]
+        config.alpha = [0.0, 0.1, 1.0, 10.0][(index % 12) // 3]
+        config.seed = index % 3
 
         # Get name
         config_name = get_name_for_CQL_config(config)
