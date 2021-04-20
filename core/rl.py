@@ -228,13 +228,13 @@ def train_gnn_rl(config, config_name):
     n_steps_done = 0
     epochs_done = 0
 
-    if os.path.isfile(f'{results_path}/{config_name}.pkl'):
-        with open(f'{results_path}/{config_name}.pkl', 'rb') as f:
+    if os.path.isfile(f'{config.saving_path}/train_results/{config_name}.pkl'):
+        with open(f'{config.saving_path}/train_results/{config_name}.pkl', 'rb') as f:
             train_results = pickle.load(f)
 
         prev_min_val_nodes = min([_[-1] for _ in train_results["val_nb_nodes"]])
 
-        q_network.load_state_dict(torch.load(f'{models_path}/{config_name}.pt'))
+        q_network.load_state_dict(torch.load(f'{config.saving_path}/models/{config_name}.pt'))
 
         n_steps_done = train_results["val_nb_nodes"][-1][0]
         epochs_done = train_results["val_nb_nodes"][-1][1]
