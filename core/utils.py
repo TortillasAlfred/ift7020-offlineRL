@@ -218,6 +218,20 @@ def get_name_for_CQL_config(config):
 
     return "_".join(name)
 
+def get_testing_config_name_for_job_index(config):
+    if config.job_index <= 47: # 0-47
+        all_config_names = os.listdir(os.path.join(config.saving_path, "models"))
+        all_config_names = [config_name.replace(".pt", "") for config_name in all_config_names]
+        all_config_names = list(sorted(all_config_names))
+
+        config_name = all_config_names[config.job_index]
+    elif config.job_index == 48:
+        config_name = "FSB"
+    elif config.job_index == 49:
+        config_name = "SCIP"
+
+    return config_name
+
 def save_work_done(working_path, saving_path):
     if working_path == saving_path:
         return
