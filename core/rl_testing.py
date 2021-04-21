@@ -227,7 +227,7 @@ def cql_testing(args, config_name, test_instances, device):
 
     all_results = {}
 
-    easy_results = test_cql_model_on_instances(model, test_instances["easy"], device, is_easy=True)
+    easy_results = test_cql_model_on_instances(model, test_instances["easy"], device, is_easy=False)
     all_results["easy"] = easy_results
 
     # Write to disk
