@@ -203,6 +203,20 @@ def get_testing_config_name_for_job_index(config):
 
     return config_name
 
+def get_testing_more_config_name_for_job_index(config):
+    if config.job_index <= 11: # 0-11
+        all_config_names = os.listdir(os.path.join(config.saving_path, "models"))
+        all_config_names = [config_name.replace(".pt", "") for config_name in all_config_names]
+        all_config_names = [config_name for config_name in all_config_names
+                            if "alpha=10.0" in config_name]
+        all_config_names = list(sorted(all_config_names))
+
+        config_name = all_config_names[config.job_index]
+    elif config.job_index == 12:
+        config_name = "SCIP"
+
+    return config_name
+
 def save_work_done(working_path, saving_path):
     if working_path == saving_path:
         return
