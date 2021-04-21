@@ -169,6 +169,56 @@ def test_cql_model_on_instances(model, instances, device, n_runs=5, is_easy=Fals
         
     return results
 
+def test_fsb_on_instances(instances, n_runs=5):
+    solve_times = []
+    nb_nodes = []
+    lp_iters = []
+
+    # We can pass custom SCIP parameters easily
+    scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
+        
+    env = ecole.environment.Branching(observation_function=(ExploreThenStrongBranch(expert_probability=1.0),
+                                                                ecole.observation.NodeBipartite()),
+                                        scip_params=scip_parameters,
+                                        information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
+                                                              "time": ecole.reward.SolvingTime().cumsum(),
+                                                              "lp_iters": ecole.reward.LpIterations().cumsum()})
+
+    for instance in tqdm(instances, f"Processing easy instances..."):
+        for run in tqdm(list(range(n_runs))):
+            env.seed(run)
+            full_observation, action_set, _, done, info = env.reset(instance)
+
+            while not done:
+                (scores, _),  _ = full_observation
+                action = action_set[scores[action_set].argmax()]
+
+                full_observation, action_set, _, done, info = env.step(action)
+
+            solve_times.append(info['time'])
+            nb_nodes.append(info['nb_nodes'])
+            lp_iters.append(info['lp_iters'])
+
+    mean_solve_time = np.mean(solve_times)
+    mean_nb_nodes = np.mean(nb_nodes)
+    mean_lp_iters = np.mean(lp_iters)
+
+    std_solve_time = np.std(solve_times)
+    std_nb_nodes = np.std(nb_nodes)
+    std_lp_iters = np.std(lp_iters)
+
+    results = {}
+
+    results["mean_solve_time"] = mean_solve_time
+    results["mean_nb_nodes"] = mean_nb_nodes
+    results["mean_lp_iters"] = mean_lp_iters
+
+    results["std_solve_time"] = std_solve_time
+    results["std_nb_nodes"] = std_nb_nodes
+    results["std_lp_iters"] = std_lp_iters
+        
+    return results  
+
 def cql_testing(args, config_name, test_instances, device):
     model = GNNPolicy()
     model.load_state_dict(torch.load(f'{args.saving_path}/models/{config_name}.pt'))
@@ -221,6 +271,18 @@ def scip_testing(args, config_name, test_instances):
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
         pickle.dump(all_results, f)
 
+def fsb_testing(args, config_name, test_instances):
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'rb') as f:
+        all_results = pickle.load(f)
+
+    medium_results = test_fsb_on_instances(test_instances["medium"])
+    all_results["medium"] = medium_results
+
+    # Write to disk
+    os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
+        pickle.dump(all_results, f)
+
 def main(args, config_name):
     test_instances = load_test_instances(args.src_path)
 
@@ -229,6 +291,8 @@ def main(args, config_name):
         cql_testing(args, config_name, test_instances, DEVICE)
     elif config_name == "SCIP":
         scip_testing(args, config_name, test_instances)
+    elif config_name == "FSB":
+        fsb_testing(args, config_name, test_instances)
     else:
         raise NotImplementedError(f"No implementation for {config_name} config testing.")
     

@@ -1,14 +1,13 @@
 #!/bin/bash
 
 #SBATCH --account=rrg-corbeilj-ac                                                   # Account with resources
-#SBATCH --gres=gpu:t4:1                                                             # Number of GPUs
 #SBATCH --cpus-per-task=4                                                           # Number of CPUs
 #SBATCH --mem=20G                                                                   # memory (per node)
-#SBATCH --time=0-03:00                                                              # time (DD-HH:MM)
+#SBATCH --time=1-00:00                                                              # time (DD-HH:MM)
 #SBATCH --mail-user=mathieu.godbout.3@ulaval.ca                                     # Where to email
 #SBATCH --mail-type=FAIL                                                            # Email when a job fails
 #SBATCH --output=/project/def-adurand/magod/opti_combi/slurm_outputs/%A_%a.out      # Default write output on scratch, to jobID_arrayID.out file
-#SBATCH --array=0-12                                                                # Launch 13 jobs
+#SBATCH --array=13                                                                  # Launch 13 jobs
 
 source /home/magod/venvs/last_try/bin/activate
 export PYTHONPATH=/home/magod/git/ift7020-offlineRL/:$PYTHONPATH

@@ -214,6 +214,8 @@ def get_testing_more_config_name_for_job_index(config):
         config_name = all_config_names[config.job_index]
     elif config.job_index == 12:
         config_name = "SCIP"
+    elif config.job_index == 13:
+        config_name = "FSB"
 
     return config_name
 
