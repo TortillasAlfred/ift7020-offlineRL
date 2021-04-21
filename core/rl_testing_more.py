@@ -1,6 +1,6 @@
 from core import  GNNPolicy
 from core.data_collection import ExploreThenStrongBranch
-from core.utils import get_testing_config_name_for_job_index
+from core.utils import get_testing_more_config_name_for_job_index
 
 import torch
 import torch.nn.functional as F
@@ -70,57 +70,7 @@ def test_scip_on_instances(instances, n_runs=5):
     results["std_nb_nodes"] = std_nb_nodes
     results["std_lp_iters"] = std_lp_iters
         
-    return results    
-
-def test_fsb_on_instances(instances, n_runs=5):
-    solve_times = []
-    nb_nodes = []
-    lp_iters = []
-
-    # We can pass custom SCIP parameters easily
-    scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
-        
-    env = ecole.environment.Branching(observation_function=(ExploreThenStrongBranch(expert_probability=1.0),
-                                                                ecole.observation.NodeBipartite()),
-                                        scip_params=scip_parameters,
-                                        information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
-                                                              "time": ecole.reward.SolvingTime().cumsum(),
-                                                              "lp_iters": ecole.reward.LpIterations().cumsum()})
-
-    for instance in tqdm(instances, f"Processing easy instances..."):
-        for run in tqdm(list(range(n_runs))):
-            env.seed(run)
-            full_observation, action_set, _, done, info = env.reset(instance)
-
-            while not done:
-                (scores, _),  _ = full_observation
-                action = action_set[scores[action_set].argmax()]
-
-                full_observation, action_set, _, done, info = env.step(action)
-
-            solve_times.append(info['time'])
-            nb_nodes.append(info['nb_nodes'])
-            lp_iters.append(info['lp_iters'])
-
-    mean_solve_time = np.mean(solve_times)
-    mean_nb_nodes = np.mean(nb_nodes)
-    mean_lp_iters = np.mean(lp_iters)
-
-    std_solve_time = np.std(solve_times)
-    std_nb_nodes = np.std(nb_nodes)
-    std_lp_iters = np.std(lp_iters)
-
-    results = {}
-
-    results["mean_solve_time"] = mean_solve_time
-    results["mean_nb_nodes"] = mean_nb_nodes
-    results["mean_lp_iters"] = mean_lp_iters
-
-    results["std_solve_time"] = std_solve_time
-    results["std_nb_nodes"] = std_nb_nodes
-    results["std_lp_iters"] = std_lp_iters
-        
-    return results  
+    return results
 
 def test_cql_model_on_instances(model, instances, device, n_runs=5, is_easy=False):
     mean_solve_time = 0.0
@@ -219,68 +169,119 @@ def test_cql_model_on_instances(model, instances, device, n_runs=5, is_easy=Fals
         
     return results
 
+def test_fsb_on_instances(instances, n_runs=5):
+    solve_times = []
+    nb_nodes = []
+    lp_iters = []
+
+    # We can pass custom SCIP parameters easily
+    scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
+        
+    env = ecole.environment.Branching(observation_function=(ExploreThenStrongBranch(expert_probability=1.0),
+                                                                ecole.observation.NodeBipartite()),
+                                        scip_params=scip_parameters,
+                                        information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
+                                                              "time": ecole.reward.SolvingTime().cumsum(),
+                                                              "lp_iters": ecole.reward.LpIterations().cumsum()})
+
+    for instance in tqdm(instances, f"Processing easy instances..."):
+        for run in tqdm(list(range(n_runs))):
+            env.seed(run)
+            full_observation, action_set, _, done, info = env.reset(instance)
+
+            while not done:
+                (scores, _),  _ = full_observation
+                action = action_set[scores[action_set].argmax()]
+
+                full_observation, action_set, _, done, info = env.step(action)
+
+            solve_times.append(info['time'])
+            nb_nodes.append(info['nb_nodes'])
+            lp_iters.append(info['lp_iters'])
+
+    mean_solve_time = np.mean(solve_times)
+    mean_nb_nodes = np.mean(nb_nodes)
+    mean_lp_iters = np.mean(lp_iters)
+
+    std_solve_time = np.std(solve_times)
+    std_nb_nodes = np.std(nb_nodes)
+    std_lp_iters = np.std(lp_iters)
+
+    results = {}
+
+    results["mean_solve_time"] = mean_solve_time
+    results["mean_nb_nodes"] = mean_nb_nodes
+    results["mean_lp_iters"] = mean_lp_iters
+
+    results["std_solve_time"] = std_solve_time
+    results["std_nb_nodes"] = std_nb_nodes
+    results["std_lp_iters"] = std_lp_iters
+        
+    return results  
+
 def cql_testing(args, config_name, test_instances, device):
     model = GNNPolicy()
     model.load_state_dict(torch.load(f'{args.saving_path}/models/{config_name}.pt'))
     model.eval()
     model = model.to(device)
 
-    all_results = {}
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'rb') as f:
+        all_results = pickle.load(f)
 
-    easy_results = test_cql_model_on_instances(model, test_instances["easy"], device, is_easy=False)
-    all_results["easy"] = easy_results
+    # MEDIUM
+    medium_results = test_cql_model_on_instances(model, test_instances["medium"], device, is_easy=False)
+    all_results["medium"] = medium_results
+
+    # Write to disk
+    os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
+        pickle.dump(all_results, f)    
+
+    # SB accuracy
+    sb_results = test_cql_model_on_instances(model, test_instances["easy"], device, is_easy=True)
+    all_results["easy"]["mean_sb_accuracy"] = sb_results["mean_sb_accuracy"]
 
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
         pickle.dump(all_results, f)
 
-    # medium_results = test_cql_model_on_instances(model, test_instances["medium"], device, is_easy=False)
-    # all_results["medium"] = medium_results
+    # CPU
+    model = model.to('cpu')
+    cpu_results = test_cql_model_on_instances(model, test_instances["easy"], 'cpu', is_easy=False)
+    
+    for key, val in cpu_results.items():
+        all_results["easy"][f"{key}_cpu"] = val
 
-    # # Write to disk
-    # os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
-    # with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-    #         pickle.dump(all_results, f)
+    # Write to disk
+    os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
+        pickle.dump(all_results, f)
 
 
 def scip_testing(args, config_name, test_instances):
-    all_results = {}
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'rb') as f:
+        all_results = pickle.load(f)
 
-    easy_results = test_scip_on_instances(test_instances["easy"])
-    all_results["easy"] = easy_results
+    medium_results = test_scip_on_instances(test_instances["medium"])
+    all_results["medium"] = medium_results
 
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
         pickle.dump(all_results, f)
-
-    # medium_results = test_scip_on_instances(test_instances["medium"])
-    # all_results["medium"] = medium_results
-
-    # # Write to disk
-    # os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
-    # with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-    #         pickle.dump(all_results, f)
 
 def fsb_testing(args, config_name, test_instances):
-    all_results = {}
+    with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'rb') as f:
+        all_results = pickle.load(f)
 
-    easy_results = test_fsb_on_instances(test_instances["easy"])
-    all_results["easy"] = easy_results
+    medium_results = test_fsb_on_instances(test_instances["medium"])
+    all_results["medium"] = medium_results
 
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
         pickle.dump(all_results, f)
-
-    # medium_results = test_fsb_on_instances(test_instances["medium"])
-    # all_results["medium"] = medium_results
-
-    # # Write to disk
-    # os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
-    # with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-    #         pickle.dump(all_results, f)
 
 def main(args, config_name):
     test_instances = load_test_instances(args.src_path)
@@ -300,12 +301,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--src_path', type=str, default='./test_instances') # This is where we the 'easy' and 'med' folder are located 
     parser.add_argument('--saving_path', type=str, default='.') # This is where we will persistently save the files
-    parser.add_argument('--job_index', type=int, default=49)
+    parser.add_argument('--job_index', type=int, default=0)
     
     args = parser.parse_args() 
     
-    config_name = get_testing_config_name_for_job_index(args)
+    config_name = get_testing_more_config_name_for_job_index(args)
 
-    print(f"\n\nCollecting test results for following config :\n{config_name}\n")
+    print(f"\n\nCollecting more test results for following config :\n{config_name}\n")
 
     main(args, config_name)
