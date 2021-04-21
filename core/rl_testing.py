@@ -233,7 +233,7 @@ def cql_testing(args, config_name, test_instances, device):
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-            pickle.dump(all_results, f)
+        pickle.dump(all_results, f)
 
     # medium_results = test_cql_model_on_instances(model, test_instances["medium"], device, is_easy=False)
     # all_results["medium"] = medium_results
@@ -253,7 +253,7 @@ def scip_testing(args, config_name, test_instances):
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-            pickle.dump(all_results, f)
+        pickle.dump(all_results, f)
 
     # medium_results = test_scip_on_instances(test_instances["medium"])
     # all_results["medium"] = medium_results
@@ -272,7 +272,7 @@ def fsb_testing(args, config_name, test_instances):
     # Write to disk
     os.makedirs(f'{args.saving_path}/test_results', exist_ok=True)
     with open(f'{args.saving_path}/test_results/{config_name}.pkl', 'wb') as f:
-            pickle.dump(all_results, f)
+        pickle.dump(all_results, f)
 
     # medium_results = test_fsb_on_instances(test_instances["medium"])
     # all_results["medium"] = medium_results
