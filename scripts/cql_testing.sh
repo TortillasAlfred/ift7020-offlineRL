@@ -16,4 +16,4 @@ export PYTHONPATH=/home/magod/git/ift7020-offlineRL/:$PYTHONPATH
 module load cuda
 export LD_LIBRARY_PATH=/cvmfs/soft.computecanada.ca/easybuild/software/2020/Core/cudacore/11.0.2/lib64:$LD_LIBRARY_PATH
 
-python core/rl.py --src_path /scratch/magod/opti_combi/test_instances --saving_path /scratch/magod/opti_combi/results --job_index $SLURM_ARRAY_TASK_ID
+python core/rl_testing.py --src_path /scratch/magod/opti_combi/test_instances --saving_path /scratch/magod/opti_combi/results --job_index $SLURM_ARRAY_TASK_ID
