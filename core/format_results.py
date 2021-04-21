@@ -24,9 +24,6 @@ def generate_train_epochs_figures(results, metrics):
 
 
 def compute_metrics(train_epoch_results, i, epoch):
-    # train_epoch_metrics = ['val_nb_nodes', 'val_solve_time', 'val_lp_iters']
-    # metrics = ['mean_solve_time', 'mean_nb_nodes', 'mean_lp_iters', 'std_solve_time', 'std_nb_nodes', 'std_lp_iters']
-    # train_epoch_results[:, [0, 1]] = train_epoch_results[:, [1, 0]]
     if int(i/3) == 0:
         return np.mean(train_epoch_results, axis=0)[i][epoch-1]
     else:
@@ -83,11 +80,11 @@ if __name__ == '__main__':
                            'train_cql_loss']
 
     mean_std_metrics = ['mean_nb_nodes',
-                     'mean_solve_time',
-                     'mean_lp_iters',
-                     'std_nb_nodes',
-                     'std_solve_time',
-                     'std_lp_iters']
+                        'mean_solve_time',
+                        'mean_lp_iters',
+                        'std_nb_nodes',
+                        'std_solve_time',
+                        'std_lp_iters']
 
     test_metrics = ['mean_nb_nodes',
                     'mean_solve_time',
