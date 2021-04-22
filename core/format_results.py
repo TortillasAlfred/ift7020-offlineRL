@@ -23,53 +23,37 @@ def generate_train_epochs_figures(results, metrics):
     plt.show()
 
 
-def compute_metrics(train_epoch_results, i, epoch):
+def compute_metrics(results, i):
     if int(i/3) == 0:
-        return np.mean(train_epoch_results, axis=0)[i][epoch-1]
+        return np.mean(results, axis=0)[i]
     else:
-        return np.std(train_epoch_results, axis=0)[i%3][epoch-1]
+        return np.std(results, axis=0)[i%3]
 
 
-def generate_train_figures(results, metrics, difficulty, epoch):
+def generate_test_figures(results, metrics, difficulty):
     fig, axs = plt.subplots(3, 2, constrained_layout=True)
 
     for model in results.keys():
         if model not in ['FSB', 'SCIP']:
             for i, metric in enumerate(metrics):
-                axs[i%3, int(i/3)].bar(model.replace('expert', 'e').replace('alpha', 'a'), compute_metrics(results[model], i, epoch))
+                if difficulty in results[model].keys():
+                    # axs[i%2, int(i/2)].bar(model.replace('expert', 'e').replace('alpha', 'a'), np.mean(results[model][difficulty], axis=0)[i])
+                    axs[i%3, int(i/3)].bar(model.replace('expert', 'e').replace('alpha', 'a'), compute_metrics(results[model][difficulty], i))
         else:
             for i, metric in enumerate(metrics):
-                axs[i % 3, int(i / 3)].bar(model, results[model][difficulty][i])
+                if difficulty in results[model].keys():
+                    axs[i%3, int(i/3)].bar(model, results[model][difficulty][i])
 
     for i in range(len(metrics)):
         axs[i%3, int(i/3)].set_title(metrics[i])
         axs[i%3, int(i/3)].tick_params(axis='x', labelrotation=280, size=6)
-
-    fig.suptitle(f'Training results with {epoch} epochs')
-    plt.show()
-
-
-def generate_test_figures(results, metrics, mean_std_metrics, difficulty):
-    fig, axs = plt.subplots(2, 2, constrained_layout=True)
-
-    for model in results.keys():
-        if model not in ['FSB', 'SCIP']:
-            for i, metric in enumerate(metrics):
-                axs[i%2, int(i/2)].bar(model.replace('expert', 'e').replace('alpha', 'a'), np.mean(results[model][difficulty], axis=0)[i])
-        else:
-            for i, metric in enumerate(metrics[:3]):
-                axs[i%2, int(i/2)].bar(model, results[model][difficulty][i])
-
-    for i in range(len(metrics)):
-        axs[i%2, int(i/2)].set_title(metrics[i])
-        axs[i%2, int(i/2)].tick_params(axis='x', labelrotation=280, size=6)
 
     fig.suptitle(f'Testing results {difficulty.capitalize()}')
     plt.show()
 
 
 if __name__ == '__main__':
-    path = '/home/jeff/Documents/RL_datasets/all_train_results_base_tests'
+    path = '/home/jeff/Documents/RL_datasets/all_results_but_FSB_med'
     train_results, test_results = load_results(path)
 
     train_epoch_metrics = ['val_nb_nodes',
@@ -88,8 +72,7 @@ if __name__ == '__main__':
 
     test_metrics = ['mean_nb_nodes',
                     'mean_solve_time',
-                    'mean_lp_iters',
-                    'mean_lp_iters_predicted']
+                    'mean_lp_iters']
 
     train_metric_results = {}
     test_metric_results = {}
@@ -99,7 +82,7 @@ if __name__ == '__main__':
 
     nb_epochs = 40
     nb_seeds = 3
-    test_difficulties = ['easy']
+    test_difficulties = ['easy', 'medium']
 
     for data in train_test_data:
         from_cql = None
@@ -109,7 +92,7 @@ if __name__ == '__main__':
                 from_cql = True
             else:
                 model = key.name
-                from_cql = None
+                from_cql = False
 
             if data[0] == 'train_results':
                 if from_cql:
@@ -118,58 +101,47 @@ if __name__ == '__main__':
 
                     for metric in data[2]:
                         data[3][model].append(np.asarray([_[2] for _ in res[metric]])[-nb_epochs:])
-                else:
-                    if model not in data[3].keys():
-                        data[3][model] = {}
-
-                        for difficulty in test_difficulties:
-                            data[3][model][difficulty] = []
-
-                        for metric in mean_std_metrics:
-                            for difficulty in test_difficulties:
-                                data[3][model][difficulty].append(res[difficulty][metric.replace('val', 'mean').replace('train', 'std')])
 
             else:
                 if from_cql:
                     if model not in data[3].keys():
                         data[3][model] = {}
                         for difficulty in test_difficulties:
-                            data[3][model][difficulty] = []
+                            if difficulty not in data[3][model].keys() and difficulty in res.keys():
+                                data[3][model][difficulty] = []
 
                     for metric in data[2]:
                         for difficulty in test_difficulties:
-                            data[3][model][difficulty].append(res[difficulty][metric])
+                            if difficulty in res.keys():
+                                data[3][model][difficulty].append(res[difficulty][metric])
 
                 else:
                     if model not in data[3].keys():
                         data[3][model] = {}
 
                         for difficulty in test_difficulties:
-                            data[3][model][difficulty] = []
+                            if difficulty not in data[3][model].keys() and difficulty in res.keys():
+                                data[3][model][difficulty] = []
 
                         for metric in mean_std_metrics:
                             for difficulty in test_difficulties:
-                                data[3][model][difficulty].append(res[difficulty][metric.replace('val', 'mean').replace('train', 'std')])
+                                if difficulty in res.keys():
+                                    data[3][model][difficulty].append(res[difficulty][metric.replace('val', 'mean').replace('train', 'std')])
 
         if data[0] == 'train_results':
             for model, values in data[3].items():
-                if model not in ['FSB', 'SCIP']:
-                    data[3][model] = np.asarray(values).reshape(nb_seeds, len(data[2]), nb_epochs)
-                else:
-                    for difficulty in test_difficulties:
-                        data[3][model][difficulty] = np.asarray(values[difficulty])
+                data[3][model] = np.asarray(values).reshape(nb_seeds, len(data[2]), nb_epochs)
         else:
             for model, values in data[3].items():
                 for difficulty in test_difficulties:
-                    if model not in ['FSB', 'SCIP']:
-                        data[3][model][difficulty] = np.asarray(values[difficulty]).reshape(nb_seeds, len(data[2]))
-                    else:
-                        data[3][model][difficulty] = np.asarray(values[difficulty])
+                    if difficulty in values.keys():
+                        if model not in ['FSB', 'SCIP']:
+                            data[3][model][difficulty] = np.asarray(values[difficulty]).reshape(nb_seeds, len(data[2]))
+                        else:
+                            data[3][model][difficulty] = np.asarray(values[difficulty])
 
         if data[0] == 'train_results':
             generate_train_epochs_figures(data[3], train_epoch_metrics)
-            for difficulty in test_difficulties:
-                generate_train_figures(data[3], mean_std_metrics, 'easy', 40)
         else:
             for difficulty in test_difficulties:
-                generate_test_figures(data[3], test_metrics, mean_std_metrics, difficulty)
+                generate_test_figures(data[3], mean_std_metrics, difficulty)
