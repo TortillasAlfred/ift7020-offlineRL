@@ -35,6 +35,7 @@ def load_test_instances(src_path):
 
 
 def test_scip_on_instances(instances, n_runs=5):
+    # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     solve_times = []
     nb_nodes = []
     lp_iters = []
@@ -80,6 +81,7 @@ def test_scip_on_instances(instances, n_runs=5):
 
 
 def test_fsb_on_instances(instances, n_runs=5):
+    # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     solve_times = []
     nb_nodes = []
     lp_iters = []
@@ -131,6 +133,7 @@ def test_fsb_on_instances(instances, n_runs=5):
 
 
 def test_cql_model_on_instances(model, instances, device, n_runs=5, is_easy=False):
+    # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     mean_solve_time = 0.0
     mean_nb_nodes = 0.0
     mean_lp_iters = 0.0

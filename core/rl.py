@@ -117,6 +117,7 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
     """
     This function will process a whole epoch of training or validation, depending on whether an optimizer is provided.
     """
+    # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     mean_loss = 0
     mean_dqn_loss = 0
     mean_cql_loss = 0
@@ -161,6 +162,7 @@ def load_valid_instances(config):
 
 
 def test_model_on_instances(model, instances, device, n_runs=1):
+    # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     mean_solve_time = 0.0
     mean_nb_nodes = 0.0
     mean_lp_iters = 0.0
@@ -207,6 +209,7 @@ def test_model_on_instances(model, instances, device, n_runs=1):
 
 
 def train_gnn_rl(config, config_name):
+    # Adapté de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
     set_seed(0)
 
     LEARNING_RATE = 3e-4
