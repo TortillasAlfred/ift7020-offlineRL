@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
@@ -20,7 +25,7 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
     axs[0].plot(ram_pct, label='ram_pct')
     cpus_pct = np.asarray(cpus_pct)
     for i in range(cpus_pct.shape[1]):
-        axs[0].plot(cpus_pct[:, i], label=f'cpu{i+1}_pct')
+        axs[0].plot(cpus_pct[:, i], label=f'cpu{i + 1}_pct')
     axs[0].set_ylabel('%')
     axs[0].legend()
     axs[1].plot(ram_used, label='ram_used')
@@ -33,7 +38,8 @@ def data_collection_stats_figure(cpu_pct, cpus_pct, ram_pct, ram_used, ram_activ
     plt.show()
 
 
-def train_gnn(working_path, config_name, collection_name, trajectories_name, train_batch_size, test_batch_size, num_workers):
+def train_gnn(working_path, config_name, collection_name, trajectories_name, train_batch_size, test_batch_size,
+              num_workers):
     # Train GNN
     LEARNING_RATE = 0.001
     NB_EPOCHS = 15
@@ -54,9 +60,11 @@ def train_gnn(working_path, config_name, collection_name, trajectories_name, tra
     valid_files = sample_files[int(0.8 * len(sample_files)):]
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+    train_loader = torch_geometric.data.DataLoader(train_data, batch_size=train_batch_size, num_workers=num_workers,
+                                                   pin_memory=True, shuffle=True)
     valid_data = GraphDataset(valid_files)
-    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+    valid_loader = torch_geometric.data.DataLoader(valid_data, batch_size=test_batch_size, num_workers=num_workers,
+                                                   pin_memory=True, shuffle=False)
 
     policy = GNNPolicy().to(DEVICE)
 
@@ -89,7 +97,7 @@ def train_gnn(working_path, config_name, collection_name, trajectories_name, tra
         train_results["val_loss"].append((n_steps_done, valid_loss))
         train_results["val_acc"].append((n_steps_done, valid_acc))
 
-        if valid_acc >= best_valid_accuracy + MIN_DELTA:            
+        if valid_acc >= best_valid_accuracy + MIN_DELTA:
             torch.save(policy.state_dict(), f'{models_path}/{config_name}.pt')
 
             # Reinit no_improvement counter and best_valid_accuracy
@@ -107,6 +115,8 @@ def train_gnn(working_path, config_name, collection_name, trajectories_name, tra
 
 
 def process_epoch(policy, data_loader, optimizer=None, device='cuda'):
+    # Code provenant de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
     """
     This function will process a whole epoch of training or validation, depending on whether an optimizer is provided.
     """
@@ -146,6 +156,8 @@ def process_epoch(policy, data_loader, optimizer=None, device='cuda'):
 
 
 def pad_tensor(input_, pad_sizes, pad_value=-1e8):
+    # Code provenant de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
     """
     This utility function splits a tensor and pads each split to make them all the same size, then stacks them.
     """
@@ -155,12 +167,14 @@ def pad_tensor(input_, pad_sizes, pad_value=-1e8):
                           for slice_ in output], dim=0)
     return output
 
+
 def get_name_for_BC_config(config):
     name = ["BC"]
 
     name.append(f"expert-proba={config.expert_probability}")
 
     return "_".join(name)
+
 
 def update_CQL_config_for_job_index(config):
     if config.job_index == -1:
@@ -178,6 +192,7 @@ def update_CQL_config_for_job_index(config):
 
         return config_name, config
 
+
 def get_name_for_CQL_config(config):
     name = ["CQL"]
 
@@ -189,8 +204,9 @@ def get_name_for_CQL_config(config):
 
     return "_".join(name)
 
+
 def get_testing_config_name_for_job_index(config):
-    if config.job_index <= 47: # 0-47
+    if config.job_index <= 47:  # 0-47
         all_config_names = os.listdir(os.path.join(config.saving_path, "models"))
         all_config_names = [config_name.replace(".pt", "") for config_name in all_config_names]
         all_config_names = list(sorted(all_config_names))
@@ -203,8 +219,9 @@ def get_testing_config_name_for_job_index(config):
 
     return config_name
 
+
 def get_testing_more_config_name_for_job_index(config):
-    if config.job_index <= 11: # 0-11
+    if config.job_index <= 11:  # 0-11
         all_config_names = os.listdir(os.path.join(config.saving_path, "models"))
         all_config_names = [config_name.replace(".pt", "") for config_name in all_config_names]
         all_config_names = [config_name for config_name in all_config_names
@@ -218,6 +235,7 @@ def get_testing_more_config_name_for_job_index(config):
         config_name = "FSB"
 
     return config_name
+
 
 def save_work_done(working_path, saving_path):
     if working_path == saving_path:
@@ -233,7 +251,6 @@ def save_work_done(working_path, saving_path):
             full_fname = os.path.join(src_path, fname)
             if os.path.isfile(full_fname):
                 shutil.copyfile(full_fname, os.path.join(dest_path, fname))
-
 
     # Move training results
     src_path = os.path.join(working_path, 'train_results')
@@ -256,6 +273,7 @@ def save_work_done(working_path, saving_path):
             full_fname = os.path.join(src_path, fname)
             if os.path.isfile(full_fname):
                 shutil.copyfile(full_fname, os.path.join(dest_path, fname))
+
 
 def set_seed(seed):
     np.random.seed(seed)

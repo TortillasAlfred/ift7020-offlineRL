@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
 from core import GraphDataset, GNNPolicy
 from core.utils import pad_tensor, save_work_done, update_CQL_config_for_job_index, set_seed
 
@@ -15,8 +20,10 @@ import os
 import numpy as np
 import ecole
 
+
 class CQL:
-    def __init__(self, q_network, gamma=0.95, reward="lp-iterations", alpha=1.0, bc_network=None, target_update_interval=1000):
+    def __init__(self, q_network, gamma=0.95, reward="lp-iterations", alpha=1.0, bc_network=None,
+                 target_update_interval=1000):
         self.q_network = q_network
         self.target_q_network = copy.deepcopy(q_network)
         self.reward = reward
@@ -30,9 +37,13 @@ class CQL:
 
     def get_loss(self, batch):
         batch_size = batch.nb_candidates.shape[0]
-        current_state = (batch.constraint_features, batch.edge_index, batch.edge_attr, batch.variable_features, batch.candidates, batch.nb_candidates)
-        next_state = (batch.next_constraint_features, batch.next_edge_index, batch.next_edge_attr, batch.next_variable_features, batch.next_candidates, batch.next_nb_candidates)
-        
+        current_state = (
+        batch.constraint_features, batch.edge_index, batch.edge_attr, batch.variable_features, batch.candidates,
+        batch.nb_candidates)
+        next_state = (
+        batch.next_constraint_features, batch.next_edge_index, batch.next_edge_attr, batch.next_variable_features,
+        batch.next_candidates, batch.next_nb_candidates)
+
         # DQN Loss
         a_t = F.one_hot(batch.candidate_choice.view(-1), num_classes=batch.nb_candidates.max())
         full_q_t = self._get_network_pred(self.q_network, *current_state)
@@ -65,7 +76,8 @@ class CQL:
 
         return dqn_loss, cql_loss, dqn_loss + self.alpha * cql_loss
 
-    def _get_network_pred(self, network, constraint_features, edge_index, edge_attr, variable_features, candidates, nb_candidates):
+    def _get_network_pred(self, network, constraint_features, edge_index, edge_attr, variable_features, candidates,
+                          nb_candidates):
         preds = network(constraint_features, edge_index, edge_attr, variable_features)
         preds = -F.relu(preds)
         return pad_tensor(preds[candidates], nb_candidates)
@@ -96,9 +108,10 @@ class CQL:
     def to(self, device):
         self.q_network = self.q_network.to(device)
         self.target_q_network = self.target_q_network.to(device)
-        
+
         if self.bc_network:
             self.bc_network = self.bc_network.to(device)
+
 
 def do_epoch(learner, data_loader, optimizer, device='cuda'):
     """
@@ -112,7 +125,7 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
     with torch.set_grad_enabled(True):
         for batch in tqdm(data_loader, "train epoch..."):
             batch = batch.to(device)
-            
+
             dqn_loss, cql_loss, loss = learner.get_loss(batch)
 
             optimizer.zero_grad()
@@ -133,17 +146,19 @@ def do_epoch(learner, data_loader, optimizer, device='cuda'):
 
     return mean_dqn_loss, mean_cql_loss, mean_loss
 
+
 def load_valid_instances(config):
     valid_instances_path = f'{config.working_path}/data/collections/{config.collection_name}/validation_instances/'
-    
+
     Path(f'{valid_instances_path}').mkdir(parents=True, exist_ok=True)
     loaded_instances = []
     for _, _, files in os.walk(valid_instances_path):
         for file in files:
-            instance = ecole.scip.Model.from_file(valid_instances_path+file)
+            instance = ecole.scip.Model.from_file(valid_instances_path + file)
             loaded_instances.append(instance)
 
     return loaded_instances
+
 
 def test_model_on_instances(model, instances, device, n_runs=1):
     mean_solve_time = 0.0
@@ -157,10 +172,10 @@ def test_model_on_instances(model, instances, device, n_runs=1):
     scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
     env = ecole.environment.Branching(observation_function=ecole.observation.NodeBipartite(),
-                                        scip_params=scip_parameters,
-                                        information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
-                                                              "time": ecole.reward.SolvingTime().cumsum(),
-                                                              "lp_iters": ecole.reward.LpIterations().cumsum()})
+                                      scip_params=scip_parameters,
+                                      information_function={"nb_nodes": ecole.reward.NNodes().cumsum(),
+                                                            "time": ecole.reward.SolvingTime().cumsum(),
+                                                            "lp_iters": ecole.reward.LpIterations().cumsum()})
 
     for instance in tqdm(instances, "Processing val instances..."):
         for run in range(n_runs):
@@ -170,9 +185,10 @@ def test_model_on_instances(model, instances, device, n_runs=1):
             while not done:
                 with torch.no_grad():
                     observation = (torch.from_numpy(observation.row_features.astype(np.float32)).to(device),
-                           torch.from_numpy(observation.edge_features.indices.astype(np.int64)).to(device), 
-                           torch.from_numpy(observation.edge_features.values.astype(np.float32)).view(-1, 1).to(device),
-                           torch.from_numpy(observation.column_features.astype(np.float32)).to(device))
+                                   torch.from_numpy(observation.edge_features.indices.astype(np.int64)).to(device),
+                                   torch.from_numpy(observation.edge_features.values.astype(np.float32)).view(-1, 1).to(
+                                       device),
+                                   torch.from_numpy(observation.column_features.astype(np.float32)).to(device))
                     logits = model(*observation)
                     logits = -F.relu(logits)
                     action = action_set[logits[action_set.astype(np.int64)].argmax()]
@@ -189,9 +205,10 @@ def test_model_on_instances(model, instances, device, n_runs=1):
 
     return mean_solve_time, mean_nb_nodes, mean_lp_iters
 
+
 def train_gnn_rl(config, config_name):
     set_seed(0)
-    
+
     LEARNING_RATE = 3e-4
     NB_EPOCHS = 40
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -208,10 +225,10 @@ def train_gnn_rl(config, config_name):
     train_files = sample_files
 
     train_data = GraphDataset(train_files)
-    train_loader = torch_geometric.data.DataLoader(train_data, 
-                                                   batch_size=config.train_batch_size, 
-                                                   num_workers=config.num_workers, 
-                                                   pin_memory=True, 
+    train_loader = torch_geometric.data.DataLoader(train_data,
+                                                   batch_size=config.train_batch_size,
+                                                   num_workers=config.num_workers,
+                                                   pin_memory=True,
                                                    shuffle=True)
 
     valid_instances = load_valid_instances(config)
@@ -223,7 +240,7 @@ def train_gnn_rl(config, config_name):
         # bc_network = GNNPolicy()
         # bc_network.load_state_dict(torch.load(f'{path}/trained_params/GCNN_trained_params.pkl'))
         raise NotImplementedError("Usage of behaviour cloning network not yet implemented for CQL.")
-            
+
     n_steps_per_epoch = len(train_loader)
     n_steps_done = 0
     epochs_done = 0
@@ -239,7 +256,7 @@ def train_gnn_rl(config, config_name):
         n_steps_done = train_results["val_nb_nodes"][-1][0]
         epochs_done = train_results["val_nb_nodes"][-1][1]
     else:
-        prev_min_val_nodes = 1e10 # ~ inf
+        prev_min_val_nodes = 1e10  # ~ inf
         train_results = defaultdict(list)
 
         solve_time, nb_nodes, lp_iters = test_model_on_instances(q_network, valid_instances, device=DEVICE)
@@ -247,7 +264,7 @@ def train_gnn_rl(config, config_name):
 
         train_results["val_nb_nodes"].append((n_steps_done, 0, nb_nodes))
         train_results["val_solve_time"].append((n_steps_done, 0, solve_time))
-        train_results["val_lp_iters"].append((n_steps_done, 0, lp_iters))        
+        train_results["val_lp_iters"].append((n_steps_done, 0, lp_iters))
 
     cql = CQL(q_network, bc_network=bc_network, reward=config.reward, alpha=config.alpha)
     cql.to(DEVICE)
@@ -282,14 +299,15 @@ def train_gnn_rl(config, config_name):
             pickle.dump(train_results, f)
 
         save_work_done(config.working_path, config.saving_path)
-    
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--nb_instances', type=int, default=1000)
     parser.add_argument('--nb_trajectories', type=int, default=3)
-    parser.add_argument('--working_path', type=str, default='.') # This is where we will work from 
-    parser.add_argument('--saving_path', type=str, default='.') # This is where we will persistently save the files
+    parser.add_argument('--working_path', type=str, default='.')  # This is where we will work from
+    parser.add_argument('--saving_path', type=str, default='.')  # This is where we will persistently save the files
     parser.add_argument('--expert_probability', type=float, default=0.0)
     parser.add_argument('--job_index', type=int, default=-1)
     parser.add_argument('--train_batch_size', type=int, default=32)
@@ -297,13 +315,13 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--alpha', type=float, default=1.0)
     parser.add_argument('--reward', type=str, default='lp-iterations')
-    parser.add_argument('--use_bc', type=int, default=0) # Fake boolean
+    parser.add_argument('--use_bc', type=int, default=0)  # Fake boolean
 
     args = parser.parse_args()
 
     # Recast fake booleans to true booleans
-    args.use_bc = bool(args.use_bc)    
-    
+    args.use_bc = bool(args.use_bc)
+
     config_name, args = update_CQL_config_for_job_index(args)
 
     # Default vals

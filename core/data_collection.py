@@ -36,6 +36,8 @@ class DataCollector:
 
     def collect_training_data(self, trajectories_name='trajectories_name', nb_train_trajectories=10,
                               expert_probability=0.05, job_index=-1):
+        # Basé sur https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
         # We can pass custom SCIP parameters easily
         scip_parameters = {'separating/maxrounds': 0, 'presolving/maxrestarts': 0, 'limits/time': 3600}
 
@@ -200,6 +202,8 @@ class DataCollector:
 
 
 class ExploreThenStrongBranch:
+    # Code provenant de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
     """
     This custom observation function class will randomly return either strong branching scores (expensive expert)
     or pseudocost scores (weak expert for exploration) when called at every node.

@@ -7,3 +7,4 @@ torch-cluster
 torch-spline-conv
 torch-geometric
 psutil
+pandas

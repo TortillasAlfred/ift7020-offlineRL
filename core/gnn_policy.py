@@ -3,6 +3,8 @@ import torch_geometric
 
 
 class GNNPolicy(torch.nn.Module):
+    # Code provenant de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
     def __init__(self):
         super().__init__()
         emb_size = 64
@@ -61,6 +63,8 @@ class GNNPolicy(torch.nn.Module):
 
 
 class BipartiteGraphConvolution(torch_geometric.nn.MessagePassing):
+    # Code provenant de https://github.com/ds4dm/ecole/blob/master/examples/branching-imitation.ipynb
+
     """
     The bipartite graph convolution is already provided by pytorch geometric and we merely need
     to provide the exact form of the messages being passed.
