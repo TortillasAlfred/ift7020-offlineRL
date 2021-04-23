@@ -1,0 +1,5 @@
+,accuracy,accuracy_ci
+expert0.0_alpha10.0,0.1768,0.0053
+expertmixed_alpha10.0,0.219,0.0097
+expert1.0_alpha10.0,0.2289,0.0226
+expert0.25_alpha10.0,0.2104,0.0233

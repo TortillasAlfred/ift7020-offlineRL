@@ -13,6 +13,23 @@ def generate_full_train_epochs_figures(results, metrics):
     color_list = list(colors.TABLEAU_COLORS.values())*2
     line_list = ['solid', 'dashed']
 
+    for i, metric in enumerate(metrics):
+        for c, model in enumerate(results.keys()):
+            if model not in ['FSB', 'SCIP']:
+                    plt.plot(np.mean(results[model], axis=0)[i], label=model, linewidth=2.0, color=color_list[c], linestyle=line_list[int(c/10)])
+                    for run_result in results[model][:,i]:
+                        plt.plot(run_result, alpha=0.4, color=color_list[c])
+
+        plt.title(f'Training epochs results for {metric}')
+        plt.legend(prop={'size': 6})
+        plt.savefig(f'../figures/training_epochs_results_{metric}.png')
+        plt.clf()
+
+
+def generate_full_train_epochs_figure(results, metrics):
+    color_list = list(colors.TABLEAU_COLORS.values())*2
+    line_list = ['solid', 'dashed']
+
     fig, axs = plt.subplots(3, 2, figsize=(16, 12))
 
     for c, model in enumerate(results.keys()):
@@ -32,6 +49,24 @@ def generate_full_train_epochs_figures(results, metrics):
 
 
 def generate_expert_train_epochs_figures(results, metrics, alpha=10.0):
+    color_list = list(colors.TABLEAU_COLORS.values())
+
+    for i, metric in enumerate(metrics):
+        c = 0
+        for model in results.keys():
+            if model not in ['FSB', 'SCIP'] and str(f'alpha{alpha}') in model:
+                    plt.plot(np.mean(results[model], axis=0)[i], label=model, linewidth=2.0, color=color_list[c])
+                    for run_result in results[model][:,i]:
+                        plt.plot(run_result, alpha=0.4, color=color_list[c])
+            c += 1
+
+        plt.title(f'Training epochs results for {metric} (alpha={alpha})')
+        plt.legend(prop={'size': 6})
+        plt.savefig(f'../figures/training_epochs_results_alpha{alpha}_{metric}.png')
+        plt.clf()
+
+
+def generate_expert_train_epochs_figure(results, metrics, alpha=10.0):
     color_list = list(colors.TABLEAU_COLORS.values())
 
     fig, axs = plt.subplots(3, 2, figsize=(16, 12))
@@ -55,6 +90,25 @@ def generate_expert_train_epochs_figures(results, metrics, alpha=10.0):
 
 
 def generate_alpha_train_epochs_figures(results, metrics, expert='mixed'):
+    color_list = list(colors.TABLEAU_COLORS.values())
+
+    for i, metric in enumerate(metrics):
+
+        c = 0
+        for model in results.keys():
+            if model not in ['FSB', 'SCIP'] and str(f'expert{expert}') in model:
+                plt.plot(np.mean(results[model], axis=0)[i], label=model, linewidth=2.0, color=color_list[c])
+                for run_result in results[model][:,i]:
+                    plt.plot(run_result, alpha=0.4, color=color_list[c])
+                c += 1
+
+        plt.title(f'Training epochs results for {metric} (expert={expert})')
+        plt.legend(prop={'size': 6})
+        plt.savefig(f'../figures/training_epochs_results_expert{expert}_{metric}.png')
+        plt.clf()
+
+
+def generate_alpha_train_epochs_figure(results, metrics, expert='mixed'):
     color_list = list(colors.TABLEAU_COLORS.values())
 
     fig, axs = plt.subplots(3, 2, figsize=(16, 12))
@@ -85,6 +139,23 @@ def compute_metrics(results, i):
 
 
 def generate_gpu_test_figures(results, metrics, difficulty):
+    for i in range(len(metrics)):
+        for model in results.keys():
+            if model not in ['FSB', 'SCIP']:
+                if difficulty in results[model].keys():
+                    plt.bar(model.replace('expert', 'e').replace('alpha', 'a'), compute_metrics(results[model][difficulty], i))
+            else:
+                if difficulty in results[model].keys():
+                    plt.bar(model, results[model][difficulty][i])
+
+        plt.title(f'GPU testing results for {metrics[i]} (difficulty={difficulty.capitalize()})')
+        plt.legend(prop={'size': 6})
+        plt.xticks(rotation=30, size=6, ha='right')
+        plt.savefig(f'../figures/gpu_testing_results_difficulty{difficulty}_{metrics[i]}.png')
+        plt.clf()
+
+
+def generate_gpu_test_figure(results, metrics, difficulty):
     fig, axs = plt.subplots(3, 2, constrained_layout=True, figsize=(16, 12))
 
     for model in results.keys():
@@ -107,6 +178,24 @@ def generate_gpu_test_figures(results, metrics, difficulty):
 
 
 def generate_cpu_test_figures(results, metrics, difficulty):
+    for i in range(len(metrics)):
+        for model in results.keys():
+            if model not in ['FSB', 'SCIP']:
+                if difficulty in results[model].keys():
+                    if results[model][difficulty].shape[1] > 3:
+                        plt.bar(model.replace('expert', 'e').replace('alpha', 'a'), compute_metrics(results[model][difficulty][:,3:], i))
+            else:
+                if difficulty in results[model].keys():
+                    plt.bar(model, results[model][difficulty][i])
+
+        plt.title(f'CPU testing results for {metrics[i]} (difficulty={difficulty.capitalize()})')
+        plt.legend(prop={'size': 6})
+        plt.xticks(rotation=30, size=6, ha='right')
+        plt.savefig(f'../figures/cpu_testing_results_difficulty{difficulty}_{metrics[i]}.png')
+        plt.clf()
+
+
+def generate_cpu_test_figure(results, metrics, difficulty):
     fig, axs = plt.subplots(3, 2, constrained_layout=True, figsize=(16, 12))
 
     for model in results.keys():
@@ -130,6 +219,39 @@ def generate_cpu_test_figures(results, metrics, difficulty):
 
 
 def generate_accuracy_figures(results, difficulty):
+
+    for model in results.keys():
+        if model not in ['FSB', 'SCIP']:
+            if difficulty in results[model].keys():
+                if results[model][difficulty].shape[1] > 6:
+                    plt.bar(model.replace('expert', 'e').replace('alpha', 'a'), np.mean(results[model][difficulty][:,-1]))
+        else:
+            if difficulty in results[model].keys():
+                if results[model][difficulty].shape[0] > 6:
+                    plt.bar(model, results[model][difficulty][-1])
+
+    plt.title(f'Mean accuracy (difficulty={difficulty.capitalize()})')
+    # plt.xticks(rotation=30, ha='right')
+    plt.savefig(f'../figures/mean_accuracies_difficulty{difficulty}.png')
+    plt.clf()
+
+    for model in results.keys():
+        if model not in ['FSB', 'SCIP']:
+            if difficulty in results[model].keys():
+                if results[model][difficulty].shape[1] > 6:
+                    plt.bar(model.replace('expert', 'e').replace('alpha', 'a'), np.std(results[model][difficulty][:,-1]))
+        else:
+            if difficulty in results[model].keys():
+                if results[model][difficulty].shape[0] > 6:
+                    plt.bar(model, results[model][difficulty][-1])
+
+    plt.title(f'Std accuracy (difficulty={difficulty.capitalize()})')
+    # plt.xticks(rotation=30, ha='right')
+    plt.savefig(f'../figures/std_accuracies_difficulty{difficulty}.png')
+    plt.clf()
+
+
+def generate_accuracy_figure(results, difficulty):
     fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(16, 12))
 
     for model in results.keys():
@@ -180,7 +302,7 @@ def generate_gpu_csv(data, difficulty):
             i += 1
 
     gpu_table_df = pd.DataFrame(gpu_table_data, columns=gpu_table_header, index=gpu_table_models)
-    gpu_table_df.to_csv(f'../tables/gpu_{difficulty}_table.csv')
+    gpu_table_df.round(4).to_csv(f'../tables/gpu_{difficulty}_table.csv')
 
 
 def generate_gpu_cpu_time_csv(data):
@@ -209,7 +331,7 @@ def generate_gpu_cpu_time_csv(data):
             i += 1
 
     times_table_df = pd.DataFrame(times_table_data, columns=times_table_header, index=times_table_models)
-    times_table_df.to_csv(f'../tables/gpu_cpu_times_table.csv')
+    times_table_df.round(4).to_csv(f'../tables/gpu_cpu_times_table.csv')
 
 
 def generate_accuracies_csv(data):
@@ -229,7 +351,7 @@ def generate_accuracies_csv(data):
                 i += 1
 
     accuracies_table_df = pd.DataFrame(accuracies_table_data, columns=accuracies_table_header, index=accuracies_table_models)
-    accuracies_table_df.to_csv(f'../tables/accuracies.csv')
+    accuracies_table_df.round(4).to_csv(f'../tables/accuracies_table.csv')
 
 
 if __name__ == '__main__':
@@ -267,6 +389,8 @@ if __name__ == '__main__':
     nb_epochs = 40
     nb_seeds = 3
     test_difficulties = ['easy', 'medium']
+
+    seperate_figures = True
 
     for data in train_test_data:
         from_cql = None
@@ -329,14 +453,26 @@ if __name__ == '__main__':
                             data[3][model][difficulty] = np.asarray(values[difficulty])
 
         if data[0] == 'train_results':
-            generate_full_train_epochs_figures(data[3], train_epoch_metrics)
-            generate_expert_train_epochs_figures(data[3], train_epoch_metrics, alpha=10.0)
-            generate_alpha_train_epochs_figures(data[3], train_epoch_metrics, expert='mixed')
+            if seperate_figures:
+                generate_full_train_epochs_figures(data[3], train_epoch_metrics)
+                generate_expert_train_epochs_figures(data[3], train_epoch_metrics, alpha=10.0)
+                generate_alpha_train_epochs_figures(data[3], train_epoch_metrics)
+            else:
+                generate_full_train_epochs_figure(data[3], train_epoch_metrics)
+                generate_expert_train_epochs_figure(data[3], train_epoch_metrics, alpha=10.0)
+                generate_alpha_train_epochs_figure(data[3], train_epoch_metrics, expert='mixed')
         else:
-            for difficulty in test_difficulties:
-                generate_gpu_test_figures(data[3], mean_std_metrics, difficulty)
-            generate_cpu_test_figures(data[3], mean_std_metrics, 'easy')
-            generate_accuracy_figures(data[3], 'easy')
+            if seperate_figures:
+                for difficulty in test_difficulties:
+                    generate_gpu_test_figures(data[3], mean_std_metrics, difficulty)
+                    generate_cpu_test_figures(data[3], mean_std_metrics, 'easy')
+                    generate_accuracy_figures(data[3], 'easy')
+
+            else:
+                for difficulty in test_difficulties:
+                    generate_gpu_test_figure(data[3], mean_std_metrics, difficulty)
+                generate_cpu_test_figure(data[3], mean_std_metrics, 'easy')
+                generate_accuracy_figure(data[3], 'easy')
 
             for difficulty in test_difficulties:
                 generate_gpu_csv(data, difficulty)
